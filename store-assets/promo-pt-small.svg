@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="440" height="280" viewBox="0 0 440 280"><defs><filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#30201b" flood-opacity=".10"/></filter></defs><rect width="440" height="280" fill="#fbfaf8"/><svg x="24" y="22" width="61" height="61" viewBox="0 0 128 128">
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="#ea1d2c"/>
+  <rect x="27" y="33" width="74" height="62" rx="8" fill="#fff"/>
+  <rect x="34" y="40" width="60" height="48" rx="3" fill="#ea1d2c"/>
+  <rect x="59" y="61" width="37" height="29" rx="5" fill="#fff" stroke="#ea1d2c" stroke-width="3"/>
+</svg><text x="101" y="66" font-family="Segoe UI,Arial,sans-serif" font-size="30" font-weight="750" fill="#25272c"><tspan x="101" dy="0">iFood PiP</tspan></text><text x="30" y="141" font-family="Segoe UI,Arial,sans-serif" font-size="27" font-weight="700" fill="#25272c"><tspan x="30" dy="0">Seu pedido,</tspan><tspan x="30" dy="34">em uma mini janela.</tspan></text><text x="31" y="246" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="650" fill="#b71929"><tspan x="31" dy="0">EN / PT / ES · PICTURE-IN-PICTURE</tspan></text></svg>
