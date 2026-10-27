@@ -1,13 +1,85 @@
-# iFood PiP — Privacy policy
+# Política de Privacidade — iFood PiP
 
-Version 0.0.6 · October 27, 2026
+**Versão da extensão:** 0.0.6  
+**Última atualização:** 27 de outubro de 2026
 
-Read the complete public policy in English, Portuguese and Spanish:
+O **iFood PiP** é uma extensão independente que permite acompanhar pedidos do iFood em uma janela flutuante (*Document Picture-in-Picture*), inclusive enquanto você utiliza outros aplicativos.
 
-https://ifood-pip-privacy-006-20261027.luanalvesnsr124025.chatgpt.site
+A privacidade faz parte do funcionamento do projeto: **a extensão não possui servidores próprios, não inclui anúncios ou ferramentas de análise e não envia informações dos pedidos ao desenvolvedor**.
 
-The independent extension reads the iFood order page and official order responses to show tracking in Document Picture-in-Picture. Order information, delivery codes, coordinates and captured authentication configuration remain in the source page's memory until that document closes or reloads. They are not transmitted to the publisher or the policy website. Official iFood requests and image-CDN requests remain necessary to display and refresh the order.
+Esta política descreve o comportamento da versão 0.0.6.
 
-Only the selected interface language is intentionally persisted, under `ifood-pip-language` in the website's localStorage. The default is English. The extension has no publisher backend, advertising or analytics. Closing the mini window stops its independent polling; the source page may still retain information in memory while it stays open.
+## 1. Onde a extensão funciona
 
-iFood PiP is not produced, sponsored or endorsed by iFood.
+A extensão atua exclusivamente nas páginas de acompanhamento de pedidos em `https://www.ifood.com.br/pedido/*`.
+
+Ela não solicita acesso ao histórico de navegação, a outras abas ou a sites não relacionados ao iFood.
+
+## 2. Informações utilizadas
+
+Para montar e atualizar a mini janela, a extensão pode processar informações já disponibilizadas na página e nas respostas dos serviços do próprio iFood, como:
+
+- Identificador, situação, etapas e horários do pedido;
+- Nome e imagem do estabelecimento;
+- Nome, imagem e tipo de veículo do entregador, quando disponíveis;
+- Previsões de entrega, distâncias e coordenadas relacionadas ao percurso, quando disponíveis;
+- Código de entrega e outros detalhes apresentados no acompanhamento, quando disponíveis;
+- Informações de autenticação e cabeçalhos usados pelas requisições que o próprio site realiza, estritamente para consultar a atualização do pedido na sessão já aberta.
+
+Esses dados são utilizados para exibir o acompanhamento e, quando aplicável, calcular uma estimativa local aproximada de chegada.
+
+**Eles não são coletados nem recebidos pelo desenvolvedor.**
+
+## 3. Comunicação com serviços externos
+
+A extensão observa as consultas realizadas pela página do iFood. Enquanto a mini janela está aberta, pode repetir consultas aos **serviços do próprio iFood**, usando a sessão autenticada existente, para manter as informações atualizadas.
+
+As imagens do estabelecimento ou do entregador podem ser carregadas dos endereços HTTPS fornecidos pelo iFood, inclusive de serviços de distribuição de imagens (CDNs). Essas requisições seguem o funcionamento normal do navegador e estão sujeitas às práticas dos respectivos serviços.
+
+A extensão **não envia pedidos, identificadores, códigos de entrega, coordenadas, credenciais ou dados pessoais para servidores do desenvolvedor**.
+
+Não há serviço de telemetria, publicidade ou análise de uso integrado ao projeto.
+
+## 4. Armazenamento e retenção
+
+Os dados do acompanhamento e as informações necessárias para repetir as consultas do iFood permanecem **temporariamente na memória da página**.
+
+Não são gravados pela extensão em banco de dados, arquivo ou armazenamento remoto do desenvolvedor. O fechamento ou recarregamento da página encerra esse estado temporário.
+
+A única preferência persistida intencionalmente pela extensão é o idioma selecionado (**português, inglês ou espanhol**), armazenado no `localStorage` do site do iFood com a chave `ifood-pip-language`.
+
+Essa preferência pode permanecer salva após o fechamento da janela e pode ser apagada ao limpar os dados do site no navegador.
+
+Ao fechar a mini janela, a extensão interrompe suas consultas periódicas independentes. A página original do iFood, se continuar aberta, pode seguir realizando suas próprias requisições normalmente.
+
+## 5. Compartilhamento e comercialização
+
+O desenvolvedor não recebe, vende, comercializa nem compartilha dados de acompanhamento obtidos pela extensão.
+
+A comunicação necessária ao funcionamento acontece com o iFood e, para exibir imagens, com os endereços fornecidos pelo serviço.
+
+O uso do próprio site do iFood continua sujeito aos termos e à política de privacidade do iFood, independentemente desta extensão.
+
+## 6. Controle do usuário
+
+Você pode fechar a mini janela a qualquer momento, interrompendo as atualizações independentes da extensão.
+
+Também pode desativar ou desinstalar o iFood PiP nas configurações de extensões do navegador e apagar a preferência de idioma limpando os dados do site `www.ifood.com.br`.
+
+## 7. Alterações nesta política
+
+Esta política poderá ser atualizada caso o funcionamento da extensão seja modificado.
+
+Alterações relevantes serão documentadas neste arquivo do repositório.
+
+## 8. Contato e transparência
+
+O código-fonte do iFood PiP está disponível neste repositório.
+
+Dúvidas sobre privacidade ou relatos de problemas podem ser enviados pela seção **Issues** do projeto no GitHub.
+
+## 9. Independência
+
+O **iFood PiP** é um projeto independente, não desenvolvido, patrocinado ou endossado pelo iFood.
+
+Os nomes e marcas citados pertencem aos respectivos titulares.
