@@ -1,54 +1,87 @@
-# iFood PiP — 0.0.6
+<div align="center">
+  <img src="store-assets/store-logo-300.png" alt="Ícone do iFood PiP" width="104" />
 
-Pasta pronta para instalação local no Chrome ou Edge. Não precisa de Node.js, servidor, API local ou build.
+  # iFood PiP
 
-O manifesto está na versão **0.0.6**, com Manifest V3, idioma padrão **en** e metadados localizados em `_locales/en`, `_locales/pt_BR` e `_locales/es`. Não solicita permissões adicionais além da execução declarada nas páginas de pedido do iFood. Os ícones usados pelo navegador são PNG; o original vetorial está em `icons/icon.svg`.
+  **Seu pedido em uma janela flutuante. Seu computador continua livre.**
 
-Política pública de privacidade: [English / Português / Español](https://ifood-pip-privacy-006-20261027.luanalvesnsr124025.chatgpt.site).
+  Acompanhe o iFood enquanto trabalha, estuda, navega ou usa outros aplicativos — sem precisar manter a aba do pedido em primeiro plano.
 
-## Instalar
+  **Versão 0.0.6** · **Manifest V3** · **Apache 2.0**
+</div>
 
-1. Abra `edge://extensions` ou `chrome://extensions`.
-2. Desative a versão anterior do iFood PiP, se estiver instalada, para evitar duas versões atuando na mesma página.
-3. Com o modo do desenvolvedor ativado, escolha **Carregar sem compactação**.
-4. Selecione esta pasta, que contém `manifest.json`.
-5. Abra um pedido real no iFood e **recarregue a página de acompanhamento** após instalar.
-6. Aguarde a consulta de eventos feita pelo próprio iFood e clique em **Mini janela do pedido**.
+![Apresentação do iFood PiP](store-assets/promo-pt-large.png)
 
-Mantenha esta pasta no mesmo local enquanto a extensão estiver instalada.
+## O problema que resolve
 
-## Dados e autenticação
+Acompanhar uma entrega pelo navegador não deveria exigir que você fique preso à página do pedido. Com o **iFood PiP**, o acompanhamento fica em uma pequena janela independente, que pode permanecer visível sobre outros aplicativos e atualizar as informações sem que você precise voltar à aba do iFood a todo momento.
 
-A extensão só executa em `https://www.ifood.com.br/pedido/*`, identificando o pedido na rota `/pedido/{id}/acompanhar`.
+## Funcionalidades
 
-Ela observa a requisição GET que o próprio frontend faz para:
+- **Janela flutuante de verdade:** utiliza a API *Document Picture-in-Picture* para mostrar o acompanhamento fora da aba original, inclusive sobre outros programas.
+- **Atualizações automáticas:** reaproveita as consultas autenticadas que o próprio site do iFood faz para verificar os eventos do pedido enquanto a mini janela está aberta.
+- **Informações em um só lugar:** mostra etapas do pedido e, quando disponíveis, dados da loja, do entregador, do veículo e da entrega.
+- **Previsão de chegada:** apresenta a faixa de entrega informada pelo iFood e, após a saída para entrega, pode calcular uma **estimativa local aproximada** usando os dados disponíveis.
+- **Privacidade por padrão:** não tem servidor do desenvolvedor, anúncios nem ferramentas de análise; os dados do pedido não são enviados a um serviço externo do projeto.
+- **Três idiomas:** português, inglês e espanhol, com seleção diretamente na mini janela.
 
-```text
-https://www.ifood.com.br/site-api/v1/customers/me/orders/{id}/events
-```
+## Prévia
 
-Os headers e a configuração da requisição original ficam apenas na memória. Enquanto a mini janela está aberta, a extensão pode repetir essa mesma consulta autenticada a cada aproximadamente 20 segundos, sem recarregar a aba. Não solicita tokens ao usuário nem armazena credenciais.
+| Acompanhamento | Progresso da entrega |
+|:---:|:---:|
+| <img src="store-assets/screenshot-pt-01.png" alt="iFood PiP mostrando o acompanhamento do pedido" width="390" /> | <img src="store-assets/screenshot-pt-02.png" alt="iFood PiP mostrando outra etapa do pedido" width="390" /> |
 
-Nome e foto da loja vêm do bloco do DOM que contém `Pedido Nº`, de outros elementos identificados na página ou de uma resposta de detalhes já consultada pelo site. A imagem também é reconhecida quando o iFood a representa como `div[role="img"][src]`. Fotos do entregador, veículo, código e ETA usam os campos disponíveis nos eventos. Dados ausentes não são inventados; imagens indisponíveis recebem um ícone de reserva. O status visível no DOM pode avançar um resumo HTTP atrasado: preparação na página aparece como preparação na PiP, mesmo se o último evento ainda for confirmado.
+## Instalação
 
-A contagem **Chega em ~X min** aparece somente depois da saída para entrega e não usa a janela padrão da loja nem `newEta`. O tempo restante é calculado por **distância loja → destino ÷ velocidade média + 2 minutos − tempo decorrido desde a saída**. Moto usa 22 km/h, bicicleta 12 km/h e carro 18 km/h. Quando há apenas coordenadas, usa-se distância geográfica × 1,3, identificada como aproximada; não há consulta de trânsito ou geocodificação externa.
+### Pelo código-fonte (Edge ou Chrome)
 
-O horário de saída é extraído dos eventos de despacho/início de deslocamento, com retirada como alternativa. A extensão observa também os detalhes oficiais da API v3 para obter as coordenadas. Abrir a PiP ou repetir uma consulta não reinicia o relógio. Se faltar distância, veículo ou horário de saída, a janela informa o dado ausente e mostra **Em rota de entrega**, sem inventar minutos.
+1. Baixe este repositório como ZIP e extraia os arquivos, ou clone o repositório.
+2. Acesse `edge://extensions` no Microsoft Edge ou `chrome://extensions` no Google Chrome.
+3. Ative o **Modo do desenvolvedor**.
+4. Clique em **Carregar sem compactação** e selecione a pasta que contém o `manifest.json`.
+5. Abra a página de acompanhamento de um pedido no iFood e, se necessário, recarregue a aba.
+6. Aguarde o carregamento das informações e clique em **Mini janela do pedido**.
 
-Antes da saída, o **intervalo de horário** informado pelo iFood aparece grande, com “Previsão de entrega” como legenda menor. O cálculo é atualizado a cada 10 segundos. Se o tempo calculado de trajeto for ultrapassado, aparece **Pedido atrasado** com a indicação de que se trata da estimativa local. A etapa atual tem preenchimento sólido que cresce até 100% e reinicia em zero, sem retroceder.
+**Requisitos:** navegador compatível com *Document Picture-in-Picture* (Chrome 116+ ou versão compatível do Edge), acesso a uma conta do iFood e um pedido com página de acompanhamento disponível.
 
-## Durante o uso
+## Como funciona
 
-No rodapé da PiP há um seletor discreto **EN / PT / ES** para English, Português e Español. O padrão da primeira abertura é inglês; a troca é imediata. Somente o idioma escolhido é salvo localmente no navegador (`ifood-pip-language`) para as próximas aberturas. Os dados do pedido e a autenticação continuam apenas em memória.
+A extensão é executada **somente nas páginas de pedido** em `https://www.ifood.com.br/pedido/*`.
 
-A janela abre em aproximadamente **350 × 310 px**, com margens externas reduzidas e card aproveitando a área interna. O botão nativo de voltar à aba é ocultado quando o navegador oferece suporte. O botão próprio **Ver pedido** continua disponível. A interface é compacta e sem rolagem; a moldura nativa do navegador permanece.
+Ela observa as requisições feitas pela própria página para obter os eventos do pedido. Com a mini janela aberta, pode repetir essas consultas diretamente ao iFood, utilizando a sessão já autenticada no navegador. A interface é atualizada conforme os dados recebidos.
 
-- Mantenha a aba original aberta. Ela pode ficar em segundo plano.
-- Fechar ou recarregar a aba também fecha a janela PiP.
-- Se ainda não houver requisição capturada, aguarde o iFood atualizar ou recarregue a página.
-- Se a sessão expirar, volte à página do iFood para que o site renove sua autenticação.
-- O código de entrega desaparece após validação, entrega ou cancelamento.
+A janela usa a API *Document Picture-in-Picture* do navegador. Isso permite acompanhar o pedido enquanto você utiliza outras abas **ou outros aplicativos**, sem deixar a página de rastreamento visível na tela.
 
-Este pacote não inclui simulador, capturas de pedidos, eventos de exemplo, testes ou endereços locais. Requer navegador com suporte a Document Picture-in-Picture (Chrome 116+ ou Edge compatível).
+> **Importante:** a aba original do pedido precisa continuar **aberta**, mas pode ficar em segundo plano. Fechar ou recarregar essa aba também encerra a mini janela. A previsão calculada pela extensão é uma aproximação, não uma estimativa oficial de trânsito em tempo real.
 
-Projeto independente, sem vínculo com o iFood. A logo SVG usa o desenho disponibilizado pelo [Simple Icons](https://simpleicons.org/?q=ifood).
+## Privacidade
+
+O iFood PiP foi pensado para funcionar sem coleta de dados pelo desenvolvedor:
+
+- Não solicita login, senha ou token fora da autenticação normal do iFood.
+- Mantém as informações do pedido e os dados de autenticação observados **em memória** durante o uso.
+- Comunica-se com os serviços do próprio iFood e com os endereços de imagens necessários para exibir o acompanhamento; **não envia dados do pedido para servidores do desenvolvedor**.
+- Armazena localmente apenas a preferência de idioma (`ifood-pip-language`).
+- Não inclui rastreadores, anúncios ou telemetria do projeto.
+
+Leia também a [Política de Privacidade](PRIVACY.md).
+
+## Contribuições
+
+Sugestões, correções e melhorias são bem-vindas. Você pode abrir uma *issue* para relatar um problema ou enviar um *pull request* com uma proposta de alteração.
+
+Para testar modificações, carregue a pasta do projeto como extensão descompactada no navegador. Não é necessário Node.js, servidor local nem etapa de compilação.
+
+## Licença
+
+Este projeto é disponibilizado como software de código aberto sob a **[Apache License 2.0](LICENSE)**. Consulte o arquivo `LICENSE` para os termos completos.
+
+## Aviso
+
+**iFood PiP é um projeto independente.** Não é desenvolvido, mantido, patrocinado ou endossado pelo iFood. A marca iFood pertence aos seus respectivos titulares. A licença deste repositório não concede direitos sobre marcas de terceiros.
+
+---
+
+<div align="center">
+  <sub>Feito para você acompanhar a entrega sem interromper o que está fazendo.</sub>
+</div>
