@@ -34,11 +34,12 @@
   let orderDetails = {};
   let clockTimer = null;
   const LANGUAGE_KEY = 'ifood-pip-language';
+  const DEFAULT_LANGUAGE = 'pt';
   let language = readLanguage();
 
   function readLanguage() {
-    try { const saved=window.localStorage.getItem('ifood-pip-language'); return ['en','pt','es'].includes(saved) ? saved : 'en'; }
-    catch { return 'en'; }
+    try { const saved=window.localStorage.getItem(LANGUAGE_KEY); return ['en','pt','es'].includes(saved) ? saved : DEFAULT_LANGUAGE; }
+    catch { return DEFAULT_LANGUAGE; }
   }
 
   // Domain/API parsing stays in Portuguese; only presentation is localized.
