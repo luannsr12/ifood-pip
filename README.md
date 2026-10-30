@@ -7,7 +7,7 @@
 
   Acompanhe o iFood enquanto trabalha, estuda, navega ou usa outros aplicativos — sem precisar manter a aba do pedido em primeiro plano.
 
-  **Versão 0.0.6** · **Manifest V3** · **Apache 2.0**
+  **Versão 0.0.7** · **Manifest V3** · **Apache 2.0**
 
   <a href="https://chromewebstore.google.com/detail/ifood-pip-%E2%80%94-pedido-em-min/gkmphecdhlchhmdjfmpjlomoiflhhjbj">
     <img src="https://developer.chrome.com/static/docs/webstore/branding/image/206x58-chrome-web-bcb82d15b2486.png?hl=pt-br"

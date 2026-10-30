@@ -26,4 +26,4 @@ O site e os pedidos eram sintéticos. Na PiP, o teste substitui exclusivamente o
 
 As tentativas iniciais de interceptar HTTP da PiP com Playwright não responderam nesse alvo auxiliar. O teste de navegador documenta a substituição do transporte para não confundir essa limitação com uma validação da API real do iFood.
 
-As capturas ficam em `test-results/`, ignorado pelo Git. `product-compact.png` e `product-complete.png` mostram o mesmo pedido em português nos dois modos. São capturas da PiP real, com dados sintéticos. A versão do manifest permanece 0.0.6; esta alteração não cria uma publicação na loja.
+As capturas ficam em `test-results/`, ignorado pelo Git. `product-compact.png` e `product-complete.png` mostram o mesmo pedido em português nos dois modos. São capturas da PiP real, com dados sintéticos. A versão de distribuição atual é 0.0.7; o empacotamento não cria uma publicação na loja.
