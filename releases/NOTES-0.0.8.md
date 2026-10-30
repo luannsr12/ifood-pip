@@ -1,4 +1,4 @@
-Esta versão está em preparação. O pacote 0.0.8 reúne correções na exibição progressiva das informações e ajustes no acompanhamento da entrega.
+Notas do pacote 0.0.8 publicado no GitHub em 30 de outubro de 2026. As revisões posteriores da interface nesta branch não estão incluídas nesse ZIP. O pacote reúne correções na exibição progressiva das informações e ajustes no acompanhamento da entrega.
 
 ## Alterações
 

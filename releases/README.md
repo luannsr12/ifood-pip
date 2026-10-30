@@ -2,10 +2,10 @@
 
 | Versão | Pacote | Situação |
 | --- | --- | --- |
-| 0.0.8 | [ifood-pip-0.0.8-chrome-web-store.zip](ifood-pip-0.0.8-chrome-web-store.zip) | Em preparação; inclui polling automático de 60 segundos |
+| 0.0.8 | [ifood-pip-0.0.8-chrome-web-store.zip](ifood-pip-0.0.8-chrome-web-store.zip) | [Publicada no GitHub](https://github.com/luannsr12/ifood-pip/releases/tag/0.0.8) |
 | 0.0.7 | [ifood-pip-0.0.7-chrome-web-store.zip](ifood-pip-0.0.7-chrome-web-store.zip) | [Publicada no GitHub](https://github.com/luannsr12/ifood-pip/releases/tag/0.0.7) |
 
-As notas da 0.0.8 estão em [NOTES-0.0.8.md](NOTES-0.0.8.md). As notas da 0.0.7 permanecem como registro histórico do que foi publicado. O pacote 0.0.7 não é sobrescrito.
+As notas da 0.0.8 estão em [NOTES-0.0.8.md](NOTES-0.0.8.md). As notas da 0.0.7 permanecem como registro histórico do que foi publicado. Os pacotes publicados não são sobrescritos. As revisões de interface posteriores à publicação não integram esses arquivos.
 
 ## Conteúdo
 
