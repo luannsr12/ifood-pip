@@ -13,7 +13,7 @@
 .cancelled .segment.done{background:#a6a6a6}.has-issue .shell{gap:3px;padding:9px}
 .late .eta,.late .eta-clock{color:#ad6400}.late .segment.active:before{background:#d59118}
 .pre-dispatch .eta{font-size:28px;letter-spacing:-.7px}.eta-source:empty{display:none}
-.footer{margin-top:auto;flex-shrink:0}.merchant strong{max-width:100%}
+.footer{margin-top:0;flex-shrink:0}.merchant strong{max-width:100%}
 .footer-meta{display:flex;align-items:center;gap:4px;min-width:0}.language{width:38px;flex:none;border:0;border-radius:3px;padding:2px 0;background:transparent;color:#717171;font:9px Arial,sans-serif;cursor:pointer}.language:hover{background:#f5f5f5}.language option{color:#3e3e3e;background:white}.updated{min-width:0}
 @keyframes stage-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}@keyframes spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){*,*:before{animation:none!important;transition:none!important}}
@@ -86,3 +86,98 @@
 [data-mode="compact"] .language{font-size:9px;min-height:22px;width:32px}
 [data-mode="compact"].has-issue .updated{color:#9b662c;font-weight:600}
 [data-mode="compact"].has-issue .updated:before{content:'!';display:inline-grid;place-items:center;width:10px;height:10px;border:1px solid currentColor;border-radius:50%;margin-right:3px;font-size:8px}
+
+/* A sparse order opens at its actual content size. If more details arrive
+   without a resize gesture, share a row instead of clipping or adding scroll. */
+@media(max-height:240px){
+  [data-mode="full"] .shell{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:min-content;align-content:start;padding:6px;gap:4px 8px}
+  [data-mode="full"] .merchant{grid-area:1/1/2/3}
+  [data-mode="full"] .hero{grid-area:2/1/3/3;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 7px;padding-left:20px}
+  [data-mode="full"] .eta{font-size:23px;line-height:25px;margin:0}
+  [data-mode="full"] .eta-detail{font-size:9px;line-height:12px}
+  [data-mode="full"] .eta-source{width:100%;margin:0;font-size:7px;line-height:9px}
+  [data-mode="full"] .journey{grid-area:3/1/4/3;padding:5px 6px}
+  [data-mode="full"] .status-head{margin-bottom:4px}
+  [data-mode="full"] .steps{margin-top:3px}
+  [data-mode="full"] .driver{grid-area:4/1;align-self:center;min-width:0;gap:5px}
+  [data-mode="full"] .driver .avatar{width:23px;height:23px}
+  [data-mode="full"] .driver .vehicle{display:none}
+  [data-mode="full"] .driver .micro{font-size:8px;line-height:10px}
+  [data-mode="full"] .code{grid-area:4/2;border:0;padding:0;flex-direction:column;gap:2px;align-items:flex-end}
+  [data-mode="full"] .code-label{font-size:8px;line-height:10px}
+  [data-mode="full"] .code small{display:none}
+  [data-mode="full"] .digit{height:20px;width:18px;font-size:14px}
+  [data-mode="full"] .notice{grid-area:5/1/6/3;font-size:8px;line-height:10px;padding:3px 5px}
+  [data-mode="full"] .footer{grid-area:6/1/7/3;min-height:20px}
+  [data-mode="full"] .language,[data-mode="full"] .action{min-height:20px}
+  [data-mode="full"].has-issue .shell{gap:2px 8px}
+}
+@media(max-height:190px){
+  [data-mode="full"] .shell{padding:5px 6px;gap:1px 7px}
+  [data-mode="full"] .eta-source{display:none}
+  [data-mode="full"] .notice{display:none}
+  [data-mode="full"].has-issue .updated{color:#9b662c;font-weight:600}
+}
+
+/* Expanded mode adds factual order history, the promised window and route
+   details. Rows only exist after their corresponding events are received. */
+[data-mode="full"] .shell{display:flex;flex-direction:column;padding:8px;gap:5px}
+[data-mode="full"] .hero{display:block;padding-left:22px}
+[data-mode="full"] .eta{font-size:24px;line-height:27px;margin:0 0 3px}
+[data-mode="full"] .eta-detail{font-size:10px;line-height:13px}
+[data-mode="full"] .eta-source{display:block;font-size:8px;line-height:10px}
+[data-mode="full"] .eta-source:empty{display:none}
+[data-mode="full"] .journey{padding:7px}
+[data-mode="full"] .merchant .avatar{height:28px;width:28px}
+[data-mode="full"] .status-head{margin-bottom:6px}
+[data-mode="full"] .steps{margin-top:4px;line-height:12px}
+[data-mode="full"] .footer,[data-mode="full"] .language,[data-mode="full"] .action{min-height:24px}
+[data-mode="full"] .driver{display:flex;min-height:28px}
+[data-mode="full"] .driver .vehicle{display:flex}
+[data-mode="full"] .code{display:flex;flex-direction:row;align-items:center;border-top:1px solid #eee;border-bottom:1px solid #eee;padding:5px 0;gap:8px}
+[data-mode="full"] .code small{display:block}
+[data-mode="full"] .digit{width:22px;height:25px;font-size:16px}
+.order-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 12px;margin:0;border-top:1px solid #eee;padding:7px 0 0}
+.order-details>div{min-width:0}.order-details dt{font-size:9px;line-height:12px;color:#717171}.order-details dd{margin:0;font-size:11px;line-height:14px;font-weight:600;font-variant-numeric:tabular-nums}
+[data-mode="full"] .notice{display:block;font-size:9px;line-height:12px;padding:4px 6px}
+[data-mode="compact"] .order-details{display:none}
+
+/* Keep arrival and delivery code together in the existing right-hand rail. */
+[data-mode="compact"].compact-show-code .hero{display:block;align-self:start}
+[data-mode="compact"].compact-show-code:not(.compact-estimate) .hero{display:none}
+[data-mode="compact"].compact-show-code:not(.compact-estimate) .code{align-self:center}
+[data-mode="compact"].compact-show-code .eta{font-size:21px;line-height:25px}
+[data-mode="compact"].compact-show-code .eta-detail{display:none}
+[data-mode="compact"].compact-show-code .code{align-self:end;flex-direction:row;gap:5px;justify-content:flex-end}
+[data-mode="compact"].compact-show-code .code-label>span{display:none}
+[data-mode="compact"].compact-show-code .code-label svg{width:12px;height:12px}
+[data-mode="compact"].compact-show-code .digits{gap:2px}
+[data-mode="compact"].compact-show-code .digit{width:17px;height:20px;font-size:14px}
+[data-mode="compact"].compact-show-code .code{min-width:0}
+[data-mode="compact"].has-issue .shell{padding:6px 8px;gap:3px 10px;grid-template-rows:28px minmax(46px,1fr) 4px 14px 22px 20px}
+[data-mode="compact"].has-issue .steps{line-height:14px}
+[data-mode="compact"].has-issue .notice{display:block;grid-area:5/1/6/3;font-size:9px;line-height:11px;padding:0 3px;background:#fff8ed;color:#866033;align-self:center}
+[data-mode="compact"].has-issue .footer{grid-row:6;min-height:20px}
+[data-mode="compact"].has-issue .action,[data-mode="compact"].has-issue .language{min-height:20px}
+
+/* A denied resize still exposes the compact summary and controls. */
+  [data-mode="full"].constrained .shell{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:min-content;align-content:start;padding:6px;gap:3px 8px}
+  [data-mode="full"].constrained .merchant{grid-area:1/1/2/3}
+  [data-mode="full"].constrained .hero{grid-area:2/1/3/3;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 7px;padding-left:20px}
+  [data-mode="full"].constrained .eta{font-size:23px;line-height:25px;margin:0}
+  [data-mode="full"].constrained .eta-detail{font-size:9px;line-height:12px}
+  [data-mode="full"].constrained .eta-source{display:none}
+  [data-mode="full"].constrained .journey{grid-area:3/1/4/3;padding:5px 6px}
+  [data-mode="full"].constrained .status-head{margin-bottom:4px}
+  [data-mode="full"].constrained .driver{grid-area:4/1;min-height:28px;min-width:0}
+  [data-mode="full"].constrained .driver .vehicle{display:none}
+  [data-mode="full"].constrained .code{grid-area:4/2;border:0;padding:0;flex-direction:column;gap:2px;align-items:flex-end}
+  [data-mode="full"].constrained .code small{display:none}
+  [data-mode="full"].constrained .digit{height:20px;width:18px;font-size:14px}
+  [data-mode="full"].constrained .order-details{grid-area:5/1/6/3;padding-top:4px;gap:3px 10px}
+  [data-mode="full"].constrained .order-details>div:nth-child(n+3){display:none}
+  [data-mode="full"].constrained .notice{grid-area:6/1/7/3}
+  [data-mode="full"].constrained .footer{grid-area:7/1/8/3}
+@media(max-height:210px){
+  [data-mode="full"] .order-details{display:none}
+}

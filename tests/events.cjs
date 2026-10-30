@@ -54,7 +54,7 @@ function scenario(value,index) {
       const item={event:value,stage:data.stage,modes:{}};
       for(const mode of ['full','compact']) {
         if(await pip.locator('body').getAttribute('data-mode')!==mode)await pip.locator('#toggle-mode').click();
-        await pip.waitForFunction(height=>Math.abs(innerHeight-height)<=3,mode==='compact'?164:310);
+        await pip.waitForFunction(mode=>mode==='compact'?Math.abs(innerHeight-164)<=3:innerHeight>210,mode);
         const state=await pip.evaluate(()=>{
           const rect=selector=>{const element=document.querySelector(selector);const box=element.getBoundingClientRect();return {x:box.x,y:box.y,right:box.right,bottom:box.bottom,width:box.width,height:box.height,visible:!!(box.width&&box.height)}};
           return {eta:document.getElementById('eta').textContent,status:document.getElementById('status').textContent,viewport:{width:innerWidth,height:innerHeight},scroll:{width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight},footer:rect('.footer'),etaBox:rect('.hero'),statusBox:rect('.status-head'),driverBox:rect('.driver'),storeSvg:!!document.querySelector('#store-avatar svg'),driverSvg:!!document.querySelector('#driver-avatar svg'),driver:document.getElementById('driver-name').textContent,codeVisible:rect('.code').visible,text:document.body.innerText};
@@ -74,6 +74,8 @@ function scenario(value,index) {
         } else if(data.stage==='shipping') assert.match(state.eta,/~\d+ min/,value+' '+mode+' missing dispatch countdown');
         if(value==='COLLECTED'||value==='DELIVERY_COLLECTED')assert.equal(state.eta,'13:30 – 14:00');
         if(value==='DELIVERY_DROP_CODE_VALIDATION_SUCCESS'||['delivered','cancelled'].includes(data.stage))assert.equal(state.codeVisible,false);
+        if(['shipping','arriving'].includes(data.stage)&&value!=='DELIVERY_DROP_CODE_VALIDATION_SUCCESS')assert.equal(state.codeVisible,true,value+' '+mode+' missing delivery code');
+        if(['received','preparing','driver','atStore'].includes(data.stage))assert.equal(state.codeVisible,false,value+' early delivery code');
         assert.doesNotMatch(state.text,/\b(?:ui_|pip_|order_)[a-z_]+/);
         const file=`${String(index+1).padStart(2,'0')}-${value.toLowerCase()}-${mode}.png`;
         await pip.screenshot({path:path.join(results,file)});
@@ -82,8 +84,25 @@ function scenario(value,index) {
       report.push(item);
       if((index+1)%8===0)console.log(`Simulated ${index+1}/${values.length} events in both modes`);
     }
+    // Keep the initial short full window open while all new information
+    // arrives. No synthetic click/activation may resize it for these updates.
+    payload=scenario('CREATED',0).events;
+    await page.evaluate(id=>fetch(`/site-api/v1/customers/me/orders/${id}/events`).then(res=>res.json()),id);
+    await pip.waitForFunction(()=>document.body.dataset.stage==='received');
+    if(await pip.locator('body').getAttribute('data-mode')!=='full')await pip.locator('#toggle-mode').click();
+    await pip.waitForFunction(()=>innerHeight>210);
+    for(const value of ['CONFIRMED','PREPARATION_STARTED','ASSIGN_DRIVER','COLLECTED','DISPATCHED','ARRIVED_AT_DESTINATION','DELIVERY_DROP_CODE_VALIDATION_SUCCESS','DELIVERED']) {
+      const data=scenario(value,0);payload=data.events;
+      await page.evaluate(id=>fetch(`/site-api/v1/customers/me/orders/${id}/events`).then(res=>res.json()),id);
+      await pip.waitForFunction(({stage,label})=>document.body.dataset.stage===stage&&document.getElementById('status').textContent===label,data);
+      const fit=await pip.evaluate(()=>({height:innerHeight,footer:document.querySelector('.footer').getBoundingClientRect().bottom,driver:document.querySelector('.driver').getBoundingClientRect().bottom,code:document.querySelector('.code').getBoundingClientRect().bottom}));
+      assert.ok(fit.footer<=fit.height,value+' short-window footer clipped: '+JSON.stringify(fit));
+      assert.ok(fit.driver<=fit.height,value+' short-window courier clipped');
+      assert.ok(fit.code<=fit.height,value+' short-window code clipped');
+    }
+    await pip.screenshot({path:path.join(results,'progressive-short-window.png')});
     assert.deepEqual(errors,[]);
-    const summary={result:'PASS',events:report.length,renderedStates:report.length*2,errors,scenarios:report};
+    const summary={result:'PASS',events:report.length,renderedStates:report.length*2,progressiveShortWindow:true,errors,scenarios:report};
     fs.writeFileSync(path.join(results,'report.json'),JSON.stringify(summary,null,2));
     fs.writeFileSync(path.join(results,'index.html'),`<!doctype html><meta charset="utf-8"><title>iFood PiP — Simulação de eventos</title><style>body{font:14px Arial;margin:28px;background:#f5f5f5;color:#333}table{border-collapse:collapse}th,td{padding:12px;border:1px solid #ddd;vertical-align:top}img{display:block;width:350px}h1{font-size:23px}small{display:block;margin-top:8px;color:#666}</style><h1>iFood PiP — ${report.length} eventos · ${report.length*2} estados</h1><p>Capturas da PiP real no Edge. Dados sintéticos. Todos os cenários passaram pelas verificações de horários, layout e SVGs.</p><table><tr><th>Evento</th><th>Completo</th><th>Compacto</th></tr>${report.map(item=>`<tr><td>${escape(item.event)}<small>${escape(item.stage)}</small></td>${['full','compact'].map(mode=>`<td><img src="${item.modes[mode].file}" alt="${escape(item.event)} ${mode}"><small>${escape(item.modes[mode].eta)}</small></td>`).join('')}</tr>`).join('')}</table>`);
     await pip.close();

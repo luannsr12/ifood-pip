@@ -1,10 +1,10 @@
-const {blankSnapshot} = require('./order');
+const {blankSnapshot,displaySnapshot} = require('./order');
 const createPreferences = require('./preferences');
 const {createI18n} = require('./i18n');
 const createFormat = require('./format');
 const HOST_ID = 'ifood-pip-companion-root';
 const ORDER_PATH = /^\/pedido\/([a-f\d-]{30,50})\/acompanhar\/?$/i;
-const POLL_INTERVAL = 20000;
+const POLL_INTERVAL = 60000;
 
 if (location.origin === 'https://www.ifood.com.br' && !document.getElementById(HOST_ID)) start();
 
@@ -12,10 +12,10 @@ function start() {
   const preferences = createPreferences(() => window.localStorage);
   const state = {
     host:null, launchButton:null, feedback:null, pip:null, pollTimer:null,
-    pollInFlight:false, replay:null, capturedSummary:null, lastPageUpdateAt:0,
+    pollInFlight:false, pollFailures:0, pollCompleted:false, replay:null, capturedSummary:null, lastPageUpdateAt:0,
     domTimer:null, activeOrderId:null, previousSignature:'', snapshot:blankSnapshot(),
     orderDetails:{}, clockTimer:null, language:preferences.read('language'),
-    mode:preferences.read('mode'), opening:false
+    mode:'compact', opening:false
   };
   const {t:tx,locale} = createI18n({
     pt:require('../_locales/pt_BR/messages.json'),
@@ -25,14 +25,19 @@ function start() {
   const format = createFormat(locale);
   const getOrderId = () => ORDER_PATH.exec(location.pathname)?.[1] || null;
   let view, polling;
-  const renderPip = () => view?.renderPip();
+  const readOptionalPageInfo = require('./page')(state);
+  const renderPip = () => {
+    if (['delivered','cancelled'].includes(displaySnapshot(state.snapshot,readOptionalPageInfo()).stage)) state.pollCompleted = true;
+    if (polling?.isStopped()) polling.stopPolling();
+    view?.renderPip();
+  };
   const queueNextPoll = delay => polling.queueNextPoll(delay);
   const stopPolling = () => polling.stopPolling();
   const pollEvents = force => polling.pollEvents(force);
   const refreshCaptured = require('./traffic')({state,getOrderId,renderPip,queueNextPoll});
   polling = require('./polling')({state,getOrderId,renderPip,refreshCaptured,POLL_INTERVAL});
   view = require('./view')({state,tx,format,
-    readOptionalPageInfo:require('./page')(state),
+    readOptionalPageInfo,
     estimateArrival:require('./arrival')(state,format,tx),
     changeLanguage,pollEvents,toggleMode
   });
@@ -49,7 +54,6 @@ function start() {
 
   function toggleMode() {
     state.mode = state.mode === 'full' ? 'compact' : 'full';
-    preferences.write('mode',state.mode);
     state.previousSignature = '';
     renderPip();
     // Called synchronously from the user's click: resize consumes activation.
@@ -66,7 +70,7 @@ function start() {
       // lets the browser clamp/reposition a corner window on every toggle.
       // Reuse the initial outer width rather than accumulating resizeBy(0)
       // rounding at fractional Windows display scales.
-      const height = state.mode === 'compact' ? 164 : 310;
+      const height = state.mode === 'compact' ? 164 : view.fullHeight();
       win.resizeTo(state.pipOuterWidth, height + state.pipFrameHeight);
     } catch { /* Window dimensions are ultimately controlled by the browser. */ }
   }
@@ -87,10 +91,13 @@ function start() {
     }
     try {
       state.opening = true;
+      state.mode = 'compact';
+      if (state.activeOrderId !== requestedOrderId) {state.pollFailures = 0; state.pollCompleted = false;}
+      const initialSnapshot=state.capturedSummary?.orderId === requestedOrderId ? state.capturedSummary.summary : blankSnapshot();
       // Abrir ANTES de fazer fetch/await para preservar o gesto do clique.
       const opened = await window.documentPictureInPicture.requestWindow({
         width:350,
-        height:state.mode === 'compact' ? 164 : 310,
+        height:state.mode === 'compact' ? 164 : view.fullHeight(initialSnapshot),
         preferInitialWindowPlacement:false, disallowReturnToOpener:true
       });
       if (getOrderId() !== requestedOrderId) {opened.close(); return;}
@@ -101,6 +108,7 @@ function start() {
       state.snapshot = state.capturedSummary?.orderId === state.activeOrderId ? state.capturedSummary.summary : blankSnapshot();
       state.previousSignature = '';
       buildPipDocument(opened);
+      opened.addEventListener('resize',renderPip);
       opened.addEventListener('pagehide',() => {
         opened.clearInterval(state.clockTimer);
         state.clockTimer = null;
@@ -145,6 +153,8 @@ function start() {
     if (state.pip && !state.pip.closed && state.activeOrderId !== orderId) {
       stopPolling();
       state.activeOrderId = orderId;
+      state.pollFailures = 0;
+      state.pollCompleted = false;
       state.snapshot = state.capturedSummary?.orderId === orderId ? state.capturedSummary.summary : blankSnapshot();
       state.previousSignature = '';
       renderPip();

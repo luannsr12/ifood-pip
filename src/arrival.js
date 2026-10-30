@@ -2,7 +2,8 @@ const {message} = require('./i18n');
 const {finiteDistance,geographicRouteMeters} = require('./order');
 module.exports = function createArrival(state,format,t) {
   function estimateArrival(data, extras, now = Date.now()) {
-    if (data.stage === 'delivered') return { title: "ui_enjoy_your_meal", detail: "ui_your_order_has_been_delivered", source: "ui_completed" };
+    if (['loading','unknown'].includes(data.stage)) return {title:'ui_checking_order_updates',detail:'',source:''};
+    if (data.stage === 'delivered') return { title: "ui_order_completed", detail: "ui_your_order_has_been_delivered", source: "ui_completed" };
     if (data.stage === 'cancelled') return { title: "ui_order_canceled", detail: "ui_see_details_on_the_order_page", source: "ui_closed" };
     if (data.stage === 'arriving') return { title: "ui_your_courier_is_here", detail: "ui_get_ready_to_receive_your_order", source: "ui_courier_at_your_address" };
     if (data.stage === 'shipping') return routeArrival(data,extras,now);

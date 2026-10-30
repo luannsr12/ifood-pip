@@ -3,7 +3,27 @@ module.exports = function createView(context) {
   const {state,tx,format,readOptionalPageInfo,estimateArrival,changeLanguage,pollEvents,toggleMode} = context;
   const {displaySnapshot} = require('./order');
   const {message} = require('./i18n');
+  const visibility = require('./visibility');
   const statusText = data => tx(data.label);
+  function detailRows(data,extras) {
+    const allowed=visibility(data), rows=[];
+    if (!allowed.order) return rows;
+    if (extras.eta) rows.push(['ui_delivery_window',extras.eta.replace(/^Hoje,?\s*/i,'')]);
+    const meters=data.routeDistanceMeters || state.orderDetails.routeDistanceMeters || extras.routeDistanceMeters;
+    if (['shipping','arriving','delivered'].includes(data.stage) && meters>0) rows.push(['ui_store_to_address_distance',format.number(meters/1000)+' km']);
+    for (const [moment,label] of [['completed','ui_order_completed'],['arrived','ui_courier_at_your_address'],['departed','ui_departure_time'],['preparing','ui_preparation_started_at'],['confirmed','ui_order_confirmed'],['created','ui_order_created']]) {
+      if (data.timeline?.[moment] && (moment!=='departed' || !allowed.merchantWindow)) rows.push([label,format.time(data.timeline[moment])]);
+    }
+    return rows;
+  }
+  function fullHeight(snapshot=state.snapshot) {
+    const extras=readOptionalPageInfo(),data=displaySnapshot(snapshot,extras),allowed=visibility(data);
+    const courier=allowed.courier && Boolean(data.driver || state.orderDetails.driver);
+    const code=allowed.deliveryCode && Boolean(data.code || extras.code);
+    const details=detailRows(data,extras).length;
+    const eta=estimateArrival(data,extras);
+    return 198 + (eta.source?12:0) + Math.ceil(details/2)*31 + (details?8:0) + (courier?33:0) + (code?42:0) + (data.issue?30:0);
+  }
   const ICONS = {
     expand: '<path d="M14 4h6v6M20 4l-7 7M10 20H4v-6m0 6 7-7"/>',
     collapse: '<path d="M20 4l-7 7m0-6v6h6M4 20l7-7m-6 0h6v6"/>',
@@ -36,6 +56,7 @@ module.exports = function createView(context) {
       </section>
       <section class="driver" id="driver-card" hidden><div class="avatar" id="driver-avatar"></div><div><strong id="driver-name"></strong><div class="micro" id="driver-state"></div></div><span class="vehicle">${icon('bike')}<span id="vehicle"></span></span></section>
       <section class="code" id="code-card" hidden><div><div class="code-label">${icon('key')} <span data-i18n="ui_delivery_code">${tx("ui_delivery_code")}</span></div><small data-i18n="ui_share_when_receiving_your_order">${tx("ui_share_when_receiving_your_order")}</small></div><div class="digits" id="code"></div></section>
+      <dl class="order-details" id="order-details" hidden></dl>
       <div class="notice" id="note" role="status" hidden></div>
       <footer class="footer"><div class="footer-meta"><select class="language" id="language" aria-label="${tx("ui_language")}"><option value="en" data-language="language_en">EN</option><option value="pt" data-language="language_pt">PT</option><option value="es" data-language="language_es">ES</option></select><span class="updated" id="updated"></span></div><div class="actions"><button class="action" id="refresh" type="button" title="${tx("ui_check_for_updates_now")}">${icon('refresh')} <span data-i18n="ui_refresh">${tx("ui_refresh")}</span></button><button class="action" id="back" type="button"><span data-i18n="ui_view_order">${tx("ui_view_order")}</span> ${icon('arrow')}</button></div></footer>
     </main>`;
@@ -69,7 +90,7 @@ module.exports = function createView(context) {
   function renderPip() {
     if (!state.pip || state.pip.closed) return;
     const extras = readOptionalPageInfo(), data = displaySnapshot(state.snapshot, extras), eta = estimateArrival(data, extras);
-    const signature = JSON.stringify({data, extras, eta, orderId:state.activeOrderId, busy:state.pollInFlight, language:state.language, mode:state.mode});
+    const signature = JSON.stringify({data, extras, eta, orderId:state.activeOrderId, busy:state.pollInFlight, failures:state.pollFailures, completed:state.pollCompleted, language:state.language, mode:state.mode,height:state.pip.innerHeight});
     if (signature === state.previousSignature) return;
     state.previousSignature = signature;
     const doc = state.pip.document;
@@ -84,7 +105,9 @@ module.exports = function createView(context) {
     doc.getElementById('progress').setAttribute('aria-label',tx("ui_order_progress"));
     const set = (id,text) => { const el = doc.getElementById(id); if (el && el.textContent !== text) el.textContent = text; };
     const terminal = ['delivered','cancelled'].includes(data.stage);
+    const permitted = visibility(data);
     doc.body.dataset.mode = state.mode;
+    doc.body.classList.toggle('constrained',state.mode==='full' && state.pip.innerHeight<fullHeight()-4);
     const toggle = doc.getElementById('toggle-mode');
     const controlLabel = tx(state.mode === 'compact' ? 'pip_expand' : 'pip_collapse');
     toggle.title = controlLabel; toggle.setAttribute('aria-label',controlLabel);
@@ -95,21 +118,26 @@ module.exports = function createView(context) {
       doc.body.dataset.stage = data.stage;
     }
     const index = ({ loading:0, unknown:0, received:0, preparing:1, driver:1, atStore:1, shipping:2, arriving:2, delivered:4, cancelled:0 })[data.stage] ?? 0;
+    const progressStarted=index>0 || data.confirmed===true;
     doc.body.classList.toggle('terminal',terminal);
     doc.body.classList.toggle('late',Boolean(eta.late));
     doc.body.classList.toggle('pre-dispatch',Boolean(eta.preDispatch));
-    doc.body.classList.toggle('has-issue',Boolean(data.issue));
+    const issue=terminal ? '' : state.pollFailures>=4 ? 'ui_refresh_paused_open_order' : data.issue;
+    doc.body.classList.toggle('has-issue',Boolean(issue));
     doc.body.classList.toggle('cancelled',data.stage === 'cancelled');
-    set('restaurant',extras.store || tx("ui_ifood_order"));
-    doc.getElementById('restaurant').title=extras.store || tx("ui_ifood_order");
-    set('order-number',tx(message('order_number',{number:extras.number ? '#'+extras.number : '· '+(state.activeOrderId?.slice(0,8) || '—')})));
-    setAvatar(doc,'store-avatar',extras.storePhoto,'store');
+    const store=permitted.order ? extras.store : '';
+    set('restaurant',store || tx("ui_ifood_order"));
+    doc.getElementById('restaurant').title=store || tx("ui_ifood_order");
+    set('order-number',permitted.order ? tx(message('order_number',{number:extras.number ? '#'+extras.number : '· '+(state.activeOrderId?.slice(0,8) || '—')})) : '');
+    setAvatar(doc,'store-avatar',permitted.order ? extras.storePhoto : '','store');
     set('eta',tx(eta.title)); set('eta-detail',tx(eta.detail)); set('eta-source',tx(eta.source));
     set('status',statusText(data));
     // Compact mode preserves the actual status and progress. Its optional
     // ETA rail only appears when there is useful, non-redundant information.
-    const arrivalCode = data.stage === 'arriving' && (data.code || extras.code) && !data.codeValidated;
-    const hasCompactEta = Boolean(eta.preDispatch || eta.title?.key === 'order_arrives' || eta.late || arrivalCode);
+    const arrivalCode = permitted.deliveryCode && (data.code || extras.code);
+    const usefulEta=Boolean(eta.preDispatch || eta.title?.key === 'order_arrives' || eta.late);
+    const hasCompactEta = Boolean(usefulEta || arrivalCode);
+    doc.body.classList.toggle('compact-estimate',usefulEta);
     doc.body.classList.toggle('compact-has-eta',hasCompactEta);
     doc.body.classList.toggle('compact-terminal',terminal);
     doc.getElementById('eta-detail').hidden = false;
@@ -124,36 +152,44 @@ module.exports = function createView(context) {
     }
     doc.getElementById('status-symbol').innerHTML = data.stage === 'cancelled' ? '<span aria-hidden="true">×</span>' : icon(terminal ? 'check' : ['shipping','arriving','driver'].includes(data.stage) ? 'bike' : 'bag');
     for (let n=0;n<4;n++) {
-      doc.getElementById(`segment-${n}`).className = `segment${n<index ? ' done' : n===index && !terminal ? ' active' : ''}`;
-      doc.getElementById(`step-${n}`).className = 'step ' + (n<index ? 'done' : n===index && !terminal ? 'current' : '');
+      doc.getElementById(`segment-${n}`).className = `segment${n<index ? ' done' : n===index && !terminal && progressStarted ? ' active' : ''}`;
+      doc.getElementById(`step-${n}`).className = 'step ' + (n<index ? 'done' : n===index && !terminal && progressStarted ? 'current' : '');
     }
     const progress = doc.getElementById('progress');
     progress.setAttribute('aria-valuenow',String(index)); progress.setAttribute('aria-valuetext',statusText(data));
-    const driver = data.driver || state.orderDetails.driver;
+    const driver = permitted.courier ? data.driver || state.orderDetails.driver : '';
     doc.body.classList.toggle('compact-has-driver',Boolean(driver));
     doc.getElementById('driver-card').hidden = !driver;
     const driverStage = data.driverPhase || data.stage;
     set('driver-name',driver || ''); set('driver-state',tx(terminal ? "ui_delivery_completed" : data.driverLabel || (driverStage==='driver' ? "ui_heading_to_the_restaurant" : driverStage==='atStore' ? "ui_at_the_restaurant" : ['shipping','arriving'].includes(data.stage) ? "ui_delivering_your_order" : "ui_courier_assigned")));
-    set('vehicle',tx(data.modal || state.orderDetails.modal || "ui_courier")); setAvatar(doc,'driver-avatar',data.driverPhoto || state.orderDetails.driverPhoto,'driver');
-    const code = data.code || extras.code;
-    doc.getElementById('code-card').hidden = !code || data.codeValidated || terminal;
-    doc.body.classList.toggle('compact-show-code',state.mode === 'compact' && data.stage === 'arriving' && Boolean(code) && !data.codeValidated);
+    set('vehicle',permitted.courier ? tx(data.modal || state.orderDetails.modal || "ui_courier") : ''); setAvatar(doc,'driver-avatar',permitted.courier ? data.driverPhoto || state.orderDetails.driverPhoto : '','driver');
+    const code = permitted.deliveryCode ? data.code || extras.code : '';
+    doc.getElementById('code-card').setAttribute('aria-label',tx('ui_delivery_code'));
+    doc.getElementById('code-card').hidden = !code || !permitted.deliveryCode;
+    doc.body.classList.toggle('compact-show-code',state.mode === 'compact' && Boolean(code) && permitted.deliveryCode);
     const digits = doc.getElementById('code');
     if (digits.dataset.code !== code) {
       digits.dataset.code = code; digits.replaceChildren();
       for (const digit of code) { const span=doc.createElement('span'); span.className='digit'; span.textContent=digit; digits.append(span); }
     }
-    set('note',tx(data.issue || '')); doc.getElementById('note').hidden = !data.issue;
+    const details=doc.getElementById('order-details');
+    details.replaceChildren();
+    for (const [label,value] of detailRows(data,extras)) {
+      const cell=doc.createElement('div'),term=doc.createElement('dt'),description=doc.createElement('dd');
+      term.textContent=tx(label);description.textContent=value;cell.append(term,description);details.append(cell);
+    }
+    details.hidden=!details.children.length;
+    set('note',tx(issue || '')); doc.getElementById('note').hidden = !issue;
     const updatedText = tx(data.checkedAt ? message('order_updated',{event:format.time(data.eventTime) || '—',time:format.time(data.checkedAt)}) : 'ui_waiting_for_ifood');
-    const compactIssue = state.mode === 'compact' && data.issue;
+    const compactIssue = state.mode === 'compact' && issue;
     set('updated',compactIssue ? tx('ui_update_failed') : updatedText);
-    const updateDescription = compactIssue ? tx(data.issue) : updatedText;
+    const updateDescription = compactIssue ? tx(issue) : updatedText;
     doc.getElementById('updated').title = updateDescription;
     doc.getElementById('updated').setAttribute('aria-label',updateDescription);
     doc.getElementById('refresh').title=tx("ui_check_for_updates_now");
-    const refresh = doc.getElementById('refresh'); refresh.disabled=state.pollInFlight; refresh.classList.toggle('refreshing',state.pollInFlight);
+    const refresh = doc.getElementById('refresh'); refresh.disabled=state.pollInFlight || state.pollFailures>=4 || state.pollCompleted || terminal; refresh.classList.toggle('refreshing',state.pollInFlight);
   }
 
 
-  return {buildPipDocument,renderPip};
+  return {buildPipDocument,renderPip,fullHeight};
 };

@@ -27,14 +27,14 @@ test('language changes, interpolation, fallback and invariant minute pluralizati
   language='es'; assert.equal(t(message('order_arrives',{count:1})),'Llega en ~1 min');
   assert.equal(createI18n({pt:catalogs.pt,en:{}},()=> 'en').t('pip_expand'),'Expandir acompanhamento');
 });
-test('preferences preserve saved language and independently persist mode; storage can be blocked',()=>{
+test('preferences preserve saved language; storage can be blocked',()=>{
   const map=new Map(); const preferences=require('../src/preferences')(()=>({getItem:k=>map.get(k),setItem:(k,v)=>map.set(k,v)}));
-  assert.equal(preferences.read('language'),'pt'); assert.equal(preferences.read('mode'),'full');
-  preferences.write('language','en'); preferences.write('mode','compact');
-  assert.equal(preferences.read('language'),'en'); assert.equal(preferences.read('mode'),'compact');
-  assert.equal(preferences.write('mode','invalid'),false);
+  assert.equal(preferences.read('language'),'pt');
+  preferences.write('language','en');
+  assert.equal(preferences.read('language'),'en');
+  assert.equal(preferences.write('language','invalid'),false);
   const blocked=require('../src/preferences')(()=>{throw Error('blocked')});
-  assert.equal(blocked.read('language'),'pt'); assert.equal(blocked.write('mode','compact'),true);
+  assert.equal(blocked.read('language'),'pt'); assert.equal(blocked.write('language','pt'),true);
 });
 test('events never regress, filter order IDs, preserve route, driver and validated delivery code',()=>{
   const id='order'; const event=(value,time,metadata={})=>({orderId:id,value,timestamp:new Date(time).toISOString(),metadata});
@@ -57,14 +57,23 @@ test('route estimates stay anchored to departure and format independently of lan
   assert.equal(first.title.values.count,8); assert.equal(later.title.values.count,7);
   language='en'; assert.match(t(estimate(data,{},160000).detail),/2.2 km/);
   assert.equal(estimate({stage:'shipping'},{},160000).title,'ui_out_for_delivery');
-  assert.equal(estimate({stage:'delivered'},{},160000).title,'ui_enjoy_your_meal');
+  assert.equal(estimate({stage:'delivered'},{},160000).title,'ui_order_completed');
+});
+test('expanded history uses received events with timestamps, without inferring missing milestones',()=>{
+  const event=(value,time,metadata={})=>({orderId:'order',value,timestamp:new Date(time).toISOString(),metadata});
+  const summary=order.summarizeEvents([event('CREATED',1000),event('PLACED',2000),event('PREPARATION_STARTED',3000),event('ETA_UPDATED',4000,{confirmedAt:1500,dispatchedAt:5000})],'order');
+  assert.deepEqual(summary.timeline,{created:1000,preparing:3000});
+  assert.equal(summary.departedAt,0);
+  assert.equal(order.readPageStatus('Pedido concluído').stage,'delivered');
+  assert.equal(catalogs.pt.ui_the_restaurant_is_preparing_your_order.message,'Preparando o pedido');
+  assert.equal(catalogs.pt.ui_order_completed.message,'Pedido concluído');
 });
 test('polling schedules only on PiP, deduplicates, backs off 429 and stops cleanly',async()=>{
   const timers=new Map(); let count=0, calls=0, resolve;
   const state={pip:{closed:false,setTimeout:(fn,delay)=>{timers.set(++count,{fn,delay});return count},clearTimeout:id=>timers.delete(id)},pollTimer:null,pollInFlight:false,lastPageUpdateAt:0,snapshot:{}};
   let refresh=()=>new Promise(r=>resolve=r);
-  const polling=require('../src/polling')({state,getOrderId:()=> 'order',renderPip:()=>{},POLL_INTERVAL:20000,refreshCaptured:()=>{calls++;return refresh()}});
-  polling.queueNextPoll();polling.queueNextPoll(); assert.equal(timers.size,1);
+  const polling=require('../src/polling')({state,getOrderId:()=> 'order',renderPip:()=>{},POLL_INTERVAL:60000,refreshCaptured:()=>{calls++;return refresh()}});
+  polling.queueNextPoll();polling.queueNextPoll(); assert.equal(timers.size,1); assert.equal([...timers.values()][0].delay,60000);
   const pending=polling.pollEvents(true); await polling.pollEvents(true);assert.equal(calls,1);
   resolve({ok:false,reason:'HTTP 429'}); await pending;
   assert.equal([...timers.values()][0].delay,60000); assert.equal(state.pollInFlight,false);

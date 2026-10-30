@@ -19,7 +19,7 @@
     "message": "Order confirmed"
   },
   "ui_the_restaurant_is_preparing_your_order": {
-    "message": "The restaurant is preparing your order"
+    "message": "Preparing your order"
   },
   "ui_your_order_is_being_packed": {
     "message": "Your order is being packed"
@@ -114,8 +114,11 @@
   "ui_could_not_refresh_waiting_for_ifood": {
     "message": "Could not refresh. Waiting for iFood."
   },
-  "ui_enjoy_your_meal": {
-    "message": "Enjoy your meal!"
+  "ui_refresh_paused_open_order": {
+    "message": "Updates paused. Open your iFood order and refresh the page."
+  },
+  "ui_preparation_started_at": {
+    "message": "Preparation started"
   },
   "ui_your_order_has_been_delivered": {
     "message": "Your order has been delivered."

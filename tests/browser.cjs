@@ -56,6 +56,9 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
       };
     },events);
     await pip.locator('#status').filter({hasText:'preparando'}).waitFor();
+    assert.equal(await pip.locator('body').getAttribute('data-mode'),'compact');
+    await pip.locator('#toggle-mode').click();
+    await pip.waitForFunction(()=>innerHeight>210);
     fs.mkdirSync('test-results',{recursive:true});
     await pip.screenshot({path:'test-results/full.png'});
     await assertLayout(pip);
@@ -80,9 +83,9 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
     assert.ok(positions.every(p=>Math.abs(p.x-initialPosition.x)<=2 && Math.abs(p.y-initialPosition.y)<=2),'The PiP changed screen position: '+JSON.stringify(positions));
     assert.ok(Math.max(...positions.map(p=>p.width))-Math.min(...positions.map(p=>p.width))<=3,'Width accumulated rounding drift: '+JSON.stringify(positions));
     await pip.locator('#language').selectOption('en');
-    assert.match(await pip.locator('#status').innerText(),/preparing/);
+    assert.match(await pip.locator('#status').innerText(),/preparing/i);
     await pip.locator('#language').selectOption('es');
-    assert.match(await pip.locator('#status').innerText(),/preparando/);
+    assert.match(await pip.locator('#status').innerText(),/preparando/i);
     assert.equal(await page.evaluate(()=>localStorage.getItem('ifood-pip-language')),'es');
     events=[{orderId:id,value:'ASSIGN_DRIVER',metadata:{driverName:'Ana',modal:'MOTORCYCLE'},timestamp:new Date().toISOString()},
       {orderId:id,value:'DISPATCHED',metadata:{routeDistanceMeters:2200},timestamp:new Date().toISOString()}];
@@ -94,7 +97,11 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
     await assertLayout(pip);
     // Keep the opener in the background for an entire polling interval.
     await pip.bringToFront();const before=await page.evaluate(()=>window.__testRequests.length);
-    await page.waitForTimeout(22000);assert.ok(await page.evaluate(()=>window.__testRequests.length)>before);
+    await page.waitForFunction(before=>window.__testRequests.length>before,before,{timeout:65000});
+    await pip.waitForFunction(()=>{
+      const minutes=document.getElementById('eta').textContent.match(/~(\d+) min/);
+      return minutes && Number(minutes[1])<8;
+    });
     assert.ok(await page.evaluate(()=>window.__testRequests.every(r=>r.session==='synthetic')));
     // Missing data, terminal orders, long names and HTTP failure in compact mode.
     await pip.evaluate(()=>{window.__events=[];window.__testStatus=429});
@@ -102,19 +109,16 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
     await pip.locator('#updated[title*="429"]').waitFor();
     await assertLayout(pip);
     await pip.screenshot({path:'test-results/compact-error-es.png'});
-    await pip.evaluate(id=>{window.__testStatus=200;window.__events=[{orderId:id,value:'DELIVERED'}]},id);
-    await pip.locator('#refresh').click();
-    await pip.locator('#status').filter({hasText:'entregado'}).waitFor();
-    await pip.screenshot({path:'test-results/compact-delivered-es.png'});
-    await assertLayout(pip);
-    await pip.evaluate(id=>window.__events=[{orderId:id,value:'DISPATCHED',timestamp:new Date(Date.now()-3600000).toISOString(),metadata:{routeDistanceMeters:2200}},{orderId:id,value:'ASSIGN_DRIVER',metadata:{driverName:'Ana',modal:'MOTORCYCLE'}}],id);
+    await pip.evaluate(id=>{window.__testStatus=200;window.__events=[{orderId:id,value:'DISPATCHED',timestamp:new Date(Date.now()-3600000).toISOString(),metadata:{routeDistanceMeters:2200}},{orderId:id,value:'ASSIGN_DRIVER',metadata:{driverName:'Ana',modal:'MOTORCYCLE'}}]},id);
     await pip.locator('#refresh').click();
     await pip.locator('#eta').filter({hasText:'Retrasado'}).waitFor();
     await assertLayout(pip);
     await pip.screenshot({path:'test-results/compact-late-es.png'});
     await pip.evaluate(id=>window.__events=[{orderId:id,value:'DISPATCHED'}],id);
     await pip.locator('#refresh').click();
-    await pip.waitForFunction(()=>!document.body.classList.contains('compact-has-eta'));
+    await pip.waitForFunction(()=>!document.body.classList.contains('compact-estimate'));
+    assert.equal(await pip.locator('#code-card').isVisible(),true);
+    assert.equal(await pip.locator('.hero').isVisible(),false);
     await assertLayout(pip);
     await page.evaluate(()=>document.querySelector('h2').textContent='Restaurante Artesanal da Praça com um nome muito longo para testar a janela compacta');
     await pip.evaluate(()=>window.__events=[]);
@@ -132,7 +136,7 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
     await pip.screenshot({path:'test-results/compact-arriving-es.png'});
     await pip.evaluate(events=>window.__events=events,events);
     await pip.locator('#refresh').click();
-    await pip.locator('#eta').filter({hasText:'~8 min'}).waitFor();
+    await pip.locator('#eta').filter({hasText:/^~\d+ min$/}).waitFor();
     await pip.close();const stopped=await page.evaluate(()=>window.__testRequests.length);
     const popup2=context.waitForEvent('page');await page.locator('#ifood-pip-companion-root button').click();
     const reopened=await popup2;await reopened.locator('#toggle-mode').waitFor();
@@ -159,7 +163,23 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
     await reopened.locator('#toggle-mode').click();
     assert.equal(await reopened.locator('body').getAttribute('data-mode'),'compact');
     assert.ok(await reopened.locator('#status').isVisible());
-    await reopened.close();await page.waitForTimeout(22000);assert.equal(await page.evaluate(()=>window.__testRequests.length),stopped);
+    // A real successful page response resumes a paused PiP; neither manual
+    // refresh nor reopening can silently bypass the four-failure limit.
+    for(let n=0;n<4;n++) {
+      await reopened.evaluate(()=>window.fetch=async()=>new Response('',{status:503}));
+      await reopened.locator('#refresh').click();
+      await reopened.waitForFunction(()=>!document.querySelector('#refresh.refreshing'));
+    }
+    await reopened.locator('#note').filter({hasText:'Consultas pausadas'}).waitFor();
+    assert.equal(await reopened.locator('#refresh').isDisabled(),true);
+    await assertLayout(reopened);
+    await reopened.screenshot({path:'test-results/compact-paused-pt.png'});
+    events=[{orderId:id,value:'DELIVERED',timestamp:new Date().toISOString()}];
+    await page.evaluate(id=>fetch(`/site-api/v1/customers/me/orders/${id}/events`).then(r=>r.json()),id);
+    await reopened.locator('#status').filter({hasText:'entregue'}).waitFor();
+    assert.equal(await reopened.locator('#refresh').isDisabled(),true);
+    assert.equal(await reopened.locator('#code-card').isVisible(),false);
+    await reopened.close();await page.waitForTimeout(31000);await page.waitForTimeout(31000);assert.equal(await page.evaluate(()=>window.__testRequests.length),stopped);
     assert.deepEqual(errors,[]);
     console.log(JSON.stringify({result:'PASS',manifestInjection:true,compactSize,fullSize,positions,pageRequests:requests,pipTransportRequests:stopped,errors},null,2));
   } finally {

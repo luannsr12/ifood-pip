@@ -1,6 +1,8 @@
 const {message} = require('./i18n');
 module.exports = function createPolling(context) {
   const {state,getOrderId,renderPip,refreshCaptured,POLL_INTERVAL} = context;
+  const isStopped = () => state.pollCompleted || state.pollFailures >= 4;
+  function resetFailures() { state.pollFailures = 0; }
   function stopPolling() {
     if (state.pollTimer !== null && state.pip) state.pip.clearTimeout(state.pollTimer);
     state.pollTimer = null;
@@ -9,13 +11,13 @@ module.exports = function createPolling(context) {
   function queueNextPoll(delay = POLL_INTERVAL) {
     stopPolling();
     // O relógio vive no documento PiP, que permanece visível com a aba em segundo plano.
-    if (state.pip && !state.pip.closed && getOrderId()) {
+    if (state.pip && !state.pip.closed && getOrderId() && !isStopped()) {
       state.pollTimer = state.pip.setTimeout(() => { state.pollTimer = null; pollEvents(); }, delay);
     }
   }
 
   async function pollEvents(force = false) {
-    if (!state.pip || state.pip.closed || state.pollInFlight) return;
+    if (!state.pip || state.pip.closed || state.pollInFlight || isStopped()) return;
     const requestWindow = state.pip;
     stopPolling();
     const orderId = getOrderId();
@@ -32,17 +34,21 @@ module.exports = function createPolling(context) {
       const result = await refreshCaptured(orderId);
       if (state.pip !== requestWindow || requestWindow.closed || getOrderId() !== orderId) return;
       if (!result.ok) {
+        state.pollFailures = (state.pollFailures || 0) + 1;
         state.snapshot.issue = result.reason === 'waiting'
           ? "ui_waiting_for_ifood_data_reload_the_page_if_needed"
           : message('order_unavailable',{reason:result.reason});
         if (result.reason === 'HTTP 429') retryAfter = 60000;
       } else {
+        resetFailures();
         state.snapshot.issue = '';
       }
+      if (state.pollFailures >= 4) state.snapshot.issue = 'ui_refresh_paused_open_order';
       renderPip();
     } catch {
-      if (state.pip === requestWindow && !requestWindow.closed) {
-        state.snapshot.issue = "ui_could_not_refresh_waiting_for_ifood";
+      if (state.pip === requestWindow && !requestWindow.closed && getOrderId() === orderId) {
+        state.pollFailures = (state.pollFailures || 0) + 1;
+        state.snapshot.issue = state.pollFailures >= 4 ? 'ui_refresh_paused_open_order' : "ui_could_not_refresh_waiting_for_ifood";
         renderPip();
       }
     } finally {
@@ -53,5 +59,5 @@ module.exports = function createPolling(context) {
   }
 
 
-  return {stopPolling,queueNextPoll,pollEvents};
+  return {stopPolling,queueNextPoll,pollEvents,isStopped,resetFailures};
 };

@@ -2,13 +2,13 @@
 (()=>{
 'use strict';
 const modules=[function(module,exports,require){
-const {blankSnapshot} = require(1);
+const {blankSnapshot,displaySnapshot} = require(1);
 const createPreferences = require(2);
 const {createI18n} = require(3);
 const createFormat = require(4);
 const HOST_ID = 'ifood-pip-companion-root';
 const ORDER_PATH = /^\/pedido\/([a-f\d-]{30,50})\/acompanhar\/?$/i;
-const POLL_INTERVAL = 20000;
+const POLL_INTERVAL = 60000;
 
 if (location.origin === 'https://www.ifood.com.br' && !document.getElementById(HOST_ID)) start();
 
@@ -16,10 +16,10 @@ function start() {
   const preferences = createPreferences(() => window.localStorage);
   const state = {
     host:null, launchButton:null, feedback:null, pip:null, pollTimer:null,
-    pollInFlight:false, replay:null, capturedSummary:null, lastPageUpdateAt:0,
+    pollInFlight:false, pollFailures:0, pollCompleted:false, replay:null, capturedSummary:null, lastPageUpdateAt:0,
     domTimer:null, activeOrderId:null, previousSignature:'', snapshot:blankSnapshot(),
     orderDetails:{}, clockTimer:null, language:preferences.read('language'),
-    mode:preferences.read('mode'), opening:false
+    mode:'compact', opening:false
   };
   const {t:tx,locale} = createI18n({
     pt:require(5),
@@ -29,15 +29,20 @@ function start() {
   const format = createFormat(locale);
   const getOrderId = () => ORDER_PATH.exec(location.pathname)?.[1] || null;
   let view, polling;
-  const renderPip = () => view?.renderPip();
+  const readOptionalPageInfo = require(8)(state);
+  const renderPip = () => {
+    if (['delivered','cancelled'].includes(displaySnapshot(state.snapshot,readOptionalPageInfo()).stage)) state.pollCompleted = true;
+    if (polling?.isStopped()) polling.stopPolling();
+    view?.renderPip();
+  };
   const queueNextPoll = delay => polling.queueNextPoll(delay);
   const stopPolling = () => polling.stopPolling();
   const pollEvents = force => polling.pollEvents(force);
-  const refreshCaptured = require(8)({state,getOrderId,renderPip,queueNextPoll});
-  polling = require(9)({state,getOrderId,renderPip,refreshCaptured,POLL_INTERVAL});
-  view = require(10)({state,tx,format,
-    readOptionalPageInfo:require(12)(state),
-    estimateArrival:require(13)(state,format,tx),
+  const refreshCaptured = require(9)({state,getOrderId,renderPip,queueNextPoll});
+  polling = require(10)({state,getOrderId,renderPip,refreshCaptured,POLL_INTERVAL});
+  view = require(11)({state,tx,format,
+    readOptionalPageInfo,
+    estimateArrival:require(14)(state,format,tx),
     changeLanguage,pollEvents,toggleMode
   });
   const buildPipDocument = win => view.buildPipDocument(win);
@@ -53,7 +58,6 @@ function start() {
 
   function toggleMode() {
     state.mode = state.mode === 'full' ? 'compact' : 'full';
-    preferences.write('mode',state.mode);
     state.previousSignature = '';
     renderPip();
     // Called synchronously from the user's click: resize consumes activation.
@@ -70,12 +74,12 @@ function start() {
       // lets the browser clamp/reposition a corner window on every toggle.
       // Reuse the initial outer width rather than accumulating resizeBy(0)
       // rounding at fractional Windows display scales.
-      const height = state.mode === 'compact' ? 164 : 310;
+      const height = state.mode === 'compact' ? 164 : view.fullHeight();
       win.resizeTo(state.pipOuterWidth, height + state.pipFrameHeight);
     } catch { /* Window dimensions are ultimately controlled by the browser. */ }
   }
 
-  const {mountLaunchButton,setFeedback,syncLaunchButton} = require(14)({state,HOST_ID,tx,openOrClosePip});
+  const {mountLaunchButton,setFeedback,syncLaunchButton} = require(15)({state,HOST_ID,tx,openOrClosePip});
 
   async function openOrClosePip() {
     if (state.opening) return;
@@ -91,10 +95,13 @@ function start() {
     }
     try {
       state.opening = true;
+      state.mode = 'compact';
+      if (state.activeOrderId !== requestedOrderId) {state.pollFailures = 0; state.pollCompleted = false;}
+      const initialSnapshot=state.capturedSummary?.orderId === requestedOrderId ? state.capturedSummary.summary : blankSnapshot();
       // Abrir ANTES de fazer fetch/await para preservar o gesto do clique.
       const opened = await window.documentPictureInPicture.requestWindow({
         width:350,
-        height:state.mode === 'compact' ? 164 : 310,
+        height:state.mode === 'compact' ? 164 : view.fullHeight(initialSnapshot),
         preferInitialWindowPlacement:false, disallowReturnToOpener:true
       });
       if (getOrderId() !== requestedOrderId) {opened.close(); return;}
@@ -105,6 +112,7 @@ function start() {
       state.snapshot = state.capturedSummary?.orderId === state.activeOrderId ? state.capturedSummary.summary : blankSnapshot();
       state.previousSignature = '';
       buildPipDocument(opened);
+      opened.addEventListener('resize',renderPip);
       opened.addEventListener('pagehide',() => {
         opened.clearInterval(state.clockTimer);
         state.clockTimer = null;
@@ -149,6 +157,8 @@ function start() {
     if (state.pip && !state.pip.closed && state.activeOrderId !== orderId) {
       stopPolling();
       state.activeOrderId = orderId;
+      state.pollFailures = 0;
+      state.pollCompleted = false;
       state.snapshot = state.capturedSummary?.orderId === orderId ? state.capturedSummary.summary : blankSnapshot();
       state.previousSignature = '';
       renderPip();
@@ -222,10 +232,10 @@ const MILESTONES = Object.freeze({
 });
 
 function blankSnapshot() {
-  return { stage: 'loading', label: "ui_checking_order_updates",
+  return { stage: 'loading', label: "ui_checking_order_updates", confirmed:false,
     driver: '', driverPhoto: '', driverLabel: '', modal: '', code: '', codeValidated: false,
     etaAt: 0, departedAt: 0, routeDistanceMeters: null, origin: null, destination: null,
-    eventTime: '', checkedAt: '', issue: '' };
+    eventTime: '', checkedAt: '', issue: '', timeline:{} };
 }
 
 function safeImage(value) {
@@ -301,7 +311,7 @@ function readPageStatus(text) {
   // Explicit current-status phrases only. "Logo sairá" must never mean dispatched.
   const statuses = [
     ['cancelled', /(?:Seu |O )?pedido (?:foi |est[aá] )?cancelado/i],
-    ['delivered', /(?:Seu |O )?pedido (?:foi )?entregue/i],
+    ['delivered', /(?:Seu |O )?pedido (?:(?:foi )?entregue|(?:foi )?conclu[ií]do)/i],
     ['arriving', /(?:O )?entregador chegou (?:ao seu endere[çc]o|ao destino)/i],
     ['shipping', /(?:Seu |O )?pedido (?:saiu para entrega|est[aá] a caminho)/i],
     ['preparing', /(?:O |Seu )?pedido (?:est[aá] sendo preparado(?: e logo sair[aá] para entrega)?|est[aá] em prepara[çc][aã]o|em preparo)/i]
@@ -327,6 +337,7 @@ function summarizeEvents(json, id) {
   let modal = '';
   let driverPhoto = '', code = '', codeValidated = false, etaAt = 0, driverPhase = '', driverLabel = '', driverRank = 0;
   let routeDistanceMeters = null, origin = null, destination = null, departedAt = 0;
+  const timeline = {};
   const events = json.filter(item => item?.orderId === id).slice().sort((a,b) =>
     (Date.parse(a.timestamp || a.processedAt || '') || 0) - (Date.parse(b.timestamp || b.processedAt || '') || 0));
   for (let index = 0; index < events.length; index++) {
@@ -353,6 +364,8 @@ function summarizeEvents(json, id) {
     if (mapping && mapping.rank >= driverRank && /^(ASSIGN_DRIVER|DELIVERY_ACCEPTED|(?:DELIVERY_)?(?:GOING_TO_ORIGIN|ARRIVED_AT_ORIGIN|COLLECTED|GOING_TO_DESTINATION|ARRIVED_AT_DESTINATION)|DISPATCHED)$/.test(value)) { driverPhase = mapping.stage; driverLabel = mapping.label; driverRank = mapping.rank; }
     if (!mapping) continue; // Ignora NUPAY, CHAT, HANDSHAKE_CODE, outros metadados internos.
     const timestamp = Date.parse(item.timestamp || item.processedAt || '') || 0;
+    const moment = ({CREATED:'created',PLACED:'created',CONFIRMED:'confirmed',PREPARATION_STARTED:'preparing',SEPARATION_STARTED:'preparing',DISPATCHED:'departed',GOING_TO_DESTINATION:'departed',DELIVERY_GOING_TO_DESTINATION:'departed',ARRIVED_AT_DESTINATION:'arrived',DELIVERY_ARRIVED_AT_DESTINATION:'arrived',ARRIVED:'arrived',DELIVERED:'completed',CONCLUDED:'completed',COMPLETED:'completed',DELIVERY_COMPLETED:'completed'})[value];
+    if (moment && timestamp && !timeline[moment]) timeline[moment] = timestamp;
     if (timestamp > 0 && /^(DISPATCHED|(?:DELIVERY_)?GOING_TO_DESTINATION)$/.test(value)) departedAt = departedAt ? Math.min(departedAt,timestamp) : timestamp;
     const candidate = { ...mapping, time: timestamp, index };
     // Nunca regride para uma etapa anterior por causa de eventos auxiliares/tardios.
@@ -366,8 +379,9 @@ function summarizeEvents(json, id) {
   const waitingForDriver = best?.stage === 'atStore' && driverPhase === 'driver';
   return {
     stage: waitingForDriver ? 'driver' : best?.stage || 'unknown',
+    confirmed:Boolean(best && best.rank>=3),
     label: waitingForDriver ? "ui_order_ready_courier_heading_to_the_store" : best?.label || "ui_waiting_for_an_order_update",
-    driver: name, driverPhase, driverLabel, driverPhoto, modal, code, codeValidated, etaAt, departedAt, routeDistanceMeters, origin, destination, eventTime,
+    driver: name, driverPhase, driverLabel, driverPhoto, modal, code, codeValidated, etaAt, departedAt, routeDistanceMeters, origin, destination, eventTime, timeline,
     checkedAt: Date.now(),
     issue: ''
   };
@@ -380,8 +394,7 @@ module.exports = {MILESTONES,blankSnapshot,safeImage,cleanStore,extractDetails,p
 function(module,exports,require){
 module.exports = function createPreferences(storage) {
   const definitions = {
-    language: {key:'ifood-pip-language', values:['pt','en','es'], fallback:'pt'},
-    mode: {key:'ifood-pip-mode', values:['full','compact'], fallback:'full'}
+    language: {key:'ifood-pip-language', values:['pt','en','es'], fallback:'pt'}
   };
   return {
     read(name) {
@@ -431,13 +444,53 @@ module.exports = function createFormat(locale) {
 
 },
 function(module,exports,require){
-module.exports = {"pip_eta_late":{"message":"Atrasado"},"pip_eta_minutes":{"message":"~$count$ min","placeholders":{"count":{"content":"$1"}}},"pip_estimated_arrival":{"message":"Chegada estimada"},"ui_update_failed":{"message":"Falha na atualização"},"extensionName":{"message":"iFood PiP — Pedido em Mini Janela"},"extensionDescription":{"message":"Acompanhe seu pedido iFood em uma janela flutuante compacta, com status e previsão de entrega. Extensão independente."},"ui_order_created":{"message":"Pedido criado"},"ui_order_placed":{"message":"Pedido realizado"},"ui_order_confirmed":{"message":"Pedido confirmado"},"ui_the_restaurant_is_preparing_your_order":{"message":"Restaurante preparando o pedido"},"ui_your_order_is_being_packed":{"message":"Pedido em separação"},"ui_courier_assigned":{"message":"Entregador atribuído"},"ui_courier_accepted_the_delivery":{"message":"Entregador aceitou a entrega"},"ui_courier_heading_to_the_restaurant":{"message":"Entregador indo ao restaurante"},"ui_courier_arrived_at_the_restaurant":{"message":"Entregador chegou ao restaurante"},"ui_order_ready_for_pickup":{"message":"Pedido pronto para retirada"},"ui_order_packed":{"message":"Separação concluída"},"ui_courier_picked_up_your_order":{"message":"Entregador retirou o pedido"},"ui_order_out_for_delivery":{"message":"Pedido saiu para entrega"},"ui_your_order_is_on_its_way":{"message":"Pedido a caminho de você"},"ui_courier_arrived_at_your_address":{"message":"Entregador chegou ao destino"},"ui_order_delivered":{"message":"Pedido entregue"},"ui_order_completed":{"message":"Pedido concluído"},"ui_order_canceled":{"message":"Pedido cancelado"},"ui_order_ready_courier_heading_to_the_store":{"message":"Pedido pronto · entregador indo à loja"},"ui_waiting_for_an_order_update":{"message":"Nenhuma etapa conhecida nos eventos"},"ui_checking_order_updates":{"message":"Consultando eventos do pedido…"},"ui_your_order_is_being_prepared_for_delivery":{"message":"O pedido está sendo preparado e logo sairá para entrega"},"ui_ifood_order":{"message":"Pedido iFood"},"ui_order":{"message":"Pedido"},"ui_live_order_tracking":{"message":"Acompanhamento ao vivo"},"ui_your_order_ifood_pip":{"message":"Seu pedido · iFood PiP"},"ui_order_mini_window":{"message":"Mini janela do pedido"},"ui_close_mini_window":{"message":"Fechar mini janela"},"ui_open_ifood_order_in_picture_in_picture":{"message":"Abrir acompanhamento do iFood em Picture-in-Picture"},"ui_your_browser_does_not_support_document_picture_in_picture_here":{"message":"Seu navegador não oferece Document Picture-in-Picture nesta página."},"ui_could_not_open_the_mini_window_click_the_button_again":{"message":"Não foi possível abrir a mini janela. Clique novamente no botão."},"ui_could_not_open_the_pip_window":{"message":"Falha ao abrir a janela PiP."},"ui_unexpected_order_response_from_ifood":{"message":"Resposta inesperada de eventos do iFood."},"ui_waiting_for_ifood_data_reload_the_page_if_needed":{"message":"Aguardando a primeira requisição do iFood. Recarregue a página se necessário."},"ui_could_not_refresh_waiting_for_ifood":{"message":"Não foi possível atualizar agora. Aguardando o iFood."},"ui_enjoy_your_meal":{"message":"Bom apetite!"},"ui_your_order_has_been_delivered":{"message":"Seu pedido foi entregue."},"ui_completed":{"message":"Concluído"},"ui_see_details_on_the_order_page":{"message":"Veja os detalhes na página do pedido."},"ui_closed":{"message":"Encerrado"},"ui_your_courier_is_here":{"message":"Chegou por aí!"},"ui_get_ready_to_receive_your_order":{"message":"Prepare-se para receber seu pedido."},"ui_courier_at_your_address":{"message":"Entregador no destino"},"ui_order_delayed":{"message":"Pedido atrasado"},"ui_the_expected_time_has_passed":{"message":"O horário previsto já passou"},"ui_waiting_for_an_updated_ifood_estimate":{"message":"Aguardando nova previsão do iFood"},"ui_delivery_window":{"message":"Previsão de entrega"},"ui_delivery_window_tomorrow":{"message":"Previsão de entrega · amanhã"},"ui_tracking_your_order":{"message":"Acompanhando pedido"},"ui_the_estimate_appears_when_ifood_provides_it":{"message":"A previsão aparece quando o iFood informar."},"ui_not_enough_data_for_an_estimate":{"message":"Sem dados suficientes para estimar"},"ui_out_for_delivery":{"message":"Em rota de entrega"},"ui_store_to_address_distance":{"message":"distância loja → destino"},"ui_vehicle":{"message":"veículo"},"ui_departure_time":{"message":"horário de saída"},"ui_not_enough_trip_data_for_an_estimate":{"message":"Sem dados suficientes para estimar o trajeto"},"ui_estimated_trip_time_exceeded":{"message":"Tempo estimado de trajeto ultrapassado"},"ui_local_route_and_vehicle_estimate":{"message":"Estimativa local por percurso e veículo"},"ui_local_estimate_geographic_distance_1_3":{"message":"Estimativa local · distância geográfica × 1,3"},"ui_local_estimate_route_distance":{"message":"Estimativa local · distância do percurso"},"ui_order_status":{"message":"Andamento do pedido"},"ui_order_progress":{"message":"Etapas do pedido"},"ui_confirmed":{"message":"Confirmado"},"ui_preparing":{"message":"Preparando"},"ui_on_the_way":{"message":"A caminho"},"ui_delivered":{"message":"Entregue"},"ui_delivery_completed":{"message":"Entrega encerrada"},"ui_heading_to_the_restaurant":{"message":"Indo ao restaurante"},"ui_at_the_restaurant":{"message":"No restaurante"},"ui_delivering_your_order":{"message":"Responsável pela sua entrega"},"ui_courier":{"message":"Entregador"},"ui_motorbike":{"message":"Moto"},"ui_bicycle":{"message":"Bicicleta"},"ui_car":{"message":"Carro"},"ui_delivery_code":{"message":"Código de entrega"},"ui_share_when_receiving_your_order":{"message":"Informe ao receber o pedido"},"ui_refresh":{"message":"Atualizar"},"ui_view_order":{"message":"Ver pedido"},"ui_check_for_updates_now":{"message":"Consultar eventos agora"},"ui_waiting_for_ifood":{"message":"Esperando o iFood"},"ui_restaurant_logo":{"message":"Logo do restaurante"},"ui_courier_photo":{"message":"Foto do entregador"},"ui_language":{"message":"Idioma"},"order_arrives":{"message":"Chega em ~$count$ min","placeholders":{"count":{"content":"$1"}}},"order_late":{"message":"Há $count$ min de atraso","placeholders":{"count":{"content":"$1"}}},"order_route_late":{"message":"Há $count$ min além da estimativa","placeholders":{"count":{"content":"$1"}}},"order_by":{"message":"Até $time$","placeholders":{"time":{"content":"$1"}}},"order_waiting":{"message":"Aguardando $items$","placeholders":{"items":{"content":"$1"}}},"order_route":{"message":"$distance$ km · $vehicle$ · saiu às $time$","placeholders":{"distance":{"content":"$1"},"vehicle":{"content":"$2"},"time":{"content":"$3"}}},"order_number":{"message":"Pedido $number$","placeholders":{"number":{"content":"$1"}}},"order_updated":{"message":"Evento $event$ · consulta $time$","placeholders":{"event":{"content":"$1"},"time":{"content":"$2"}}},"order_unavailable":{"message":"Atualização não autorizada ($reason$). Aguardando o iFood atualizar.","placeholders":{"reason":{"content":"$1"}}},"pip_expand":{"message":"Expandir acompanhamento"},"pip_collapse":{"message":"Recolher acompanhamento"},"language_pt":{"message":"Português (Brasil)"},"language_en":{"message":"Inglês"},"language_es":{"message":"Espanhol"}};
+module.exports = {"pip_eta_late":{"message":"Atrasado"},"pip_eta_minutes":{"message":"~$count$ min","placeholders":{"count":{"content":"$1"}}},"pip_estimated_arrival":{"message":"Chegada estimada"},"ui_update_failed":{"message":"Falha na atualização"},"extensionName":{"message":"iFood PiP — Pedido em Mini Janela"},"extensionDescription":{"message":"Acompanhe seu pedido iFood em uma janela flutuante compacta, com status e previsão de entrega. Extensão independente."},"ui_order_created":{"message":"Pedido criado"},"ui_order_placed":{"message":"Pedido realizado"},"ui_order_confirmed":{"message":"Pedido confirmado"},"ui_the_restaurant_is_preparing_your_order":{"message":"Preparando o pedido"},"ui_your_order_is_being_packed":{"message":"Pedido em separação"},"ui_courier_assigned":{"message":"Entregador atribuído"},"ui_courier_accepted_the_delivery":{"message":"Entregador aceitou a entrega"},"ui_courier_heading_to_the_restaurant":{"message":"Entregador indo ao restaurante"},"ui_courier_arrived_at_the_restaurant":{"message":"Entregador chegou ao restaurante"},"ui_order_ready_for_pickup":{"message":"Pedido pronto para retirada"},"ui_order_packed":{"message":"Separação concluída"},"ui_courier_picked_up_your_order":{"message":"Entregador retirou o pedido"},"ui_order_out_for_delivery":{"message":"Pedido saiu para entrega"},"ui_your_order_is_on_its_way":{"message":"Pedido a caminho de você"},"ui_courier_arrived_at_your_address":{"message":"Entregador chegou ao destino"},"ui_order_delivered":{"message":"Pedido entregue"},"ui_order_completed":{"message":"Pedido concluído"},"ui_order_canceled":{"message":"Pedido cancelado"},"ui_order_ready_courier_heading_to_the_store":{"message":"Pedido pronto · entregador indo à loja"},"ui_waiting_for_an_order_update":{"message":"Nenhuma etapa conhecida nos eventos"},"ui_checking_order_updates":{"message":"Consultando eventos do pedido…"},"ui_your_order_is_being_prepared_for_delivery":{"message":"O pedido está sendo preparado e logo sairá para entrega"},"ui_ifood_order":{"message":"Pedido iFood"},"ui_order":{"message":"Pedido"},"ui_live_order_tracking":{"message":"Acompanhamento ao vivo"},"ui_your_order_ifood_pip":{"message":"Seu pedido · iFood PiP"},"ui_order_mini_window":{"message":"Mini janela do pedido"},"ui_close_mini_window":{"message":"Fechar mini janela"},"ui_open_ifood_order_in_picture_in_picture":{"message":"Abrir acompanhamento do iFood em Picture-in-Picture"},"ui_your_browser_does_not_support_document_picture_in_picture_here":{"message":"Seu navegador não oferece Document Picture-in-Picture nesta página."},"ui_could_not_open_the_mini_window_click_the_button_again":{"message":"Não foi possível abrir a mini janela. Clique novamente no botão."},"ui_could_not_open_the_pip_window":{"message":"Falha ao abrir a janela PiP."},"ui_unexpected_order_response_from_ifood":{"message":"Resposta inesperada de eventos do iFood."},"ui_waiting_for_ifood_data_reload_the_page_if_needed":{"message":"Aguardando a primeira requisição do iFood. Recarregue a página se necessário."},"ui_could_not_refresh_waiting_for_ifood":{"message":"Não foi possível atualizar agora. Aguardando o iFood."},"ui_refresh_paused_open_order":{"message":"Consultas pausadas. Abra o pedido no iFood e atualize a página."},"ui_preparation_started_at":{"message":"Início do preparo"},"ui_your_order_has_been_delivered":{"message":"Seu pedido foi entregue."},"ui_completed":{"message":"Concluído"},"ui_see_details_on_the_order_page":{"message":"Veja os detalhes na página do pedido."},"ui_closed":{"message":"Encerrado"},"ui_your_courier_is_here":{"message":"Chegou por aí!"},"ui_get_ready_to_receive_your_order":{"message":"Prepare-se para receber seu pedido."},"ui_courier_at_your_address":{"message":"Entregador no destino"},"ui_order_delayed":{"message":"Pedido atrasado"},"ui_the_expected_time_has_passed":{"message":"O horário previsto já passou"},"ui_waiting_for_an_updated_ifood_estimate":{"message":"Aguardando nova previsão do iFood"},"ui_delivery_window":{"message":"Previsão de entrega"},"ui_delivery_window_tomorrow":{"message":"Previsão de entrega · amanhã"},"ui_tracking_your_order":{"message":"Acompanhando pedido"},"ui_the_estimate_appears_when_ifood_provides_it":{"message":"A previsão aparece quando o iFood informar."},"ui_not_enough_data_for_an_estimate":{"message":"Sem dados suficientes para estimar"},"ui_out_for_delivery":{"message":"Em rota de entrega"},"ui_store_to_address_distance":{"message":"distância loja → destino"},"ui_vehicle":{"message":"veículo"},"ui_departure_time":{"message":"horário de saída"},"ui_not_enough_trip_data_for_an_estimate":{"message":"Sem dados suficientes para estimar o trajeto"},"ui_estimated_trip_time_exceeded":{"message":"Tempo estimado de trajeto ultrapassado"},"ui_local_route_and_vehicle_estimate":{"message":"Estimativa local por percurso e veículo"},"ui_local_estimate_geographic_distance_1_3":{"message":"Estimativa local · distância geográfica × 1,3"},"ui_local_estimate_route_distance":{"message":"Estimativa local · distância do percurso"},"ui_order_status":{"message":"Andamento do pedido"},"ui_order_progress":{"message":"Etapas do pedido"},"ui_confirmed":{"message":"Confirmado"},"ui_preparing":{"message":"Preparando"},"ui_on_the_way":{"message":"A caminho"},"ui_delivered":{"message":"Entregue"},"ui_delivery_completed":{"message":"Entrega encerrada"},"ui_heading_to_the_restaurant":{"message":"Indo ao restaurante"},"ui_at_the_restaurant":{"message":"No restaurante"},"ui_delivering_your_order":{"message":"Responsável pela sua entrega"},"ui_courier":{"message":"Entregador"},"ui_motorbike":{"message":"Moto"},"ui_bicycle":{"message":"Bicicleta"},"ui_car":{"message":"Carro"},"ui_delivery_code":{"message":"Código de entrega"},"ui_share_when_receiving_your_order":{"message":"Informe ao receber o pedido"},"ui_refresh":{"message":"Atualizar"},"ui_view_order":{"message":"Ver pedido"},"ui_check_for_updates_now":{"message":"Consultar eventos agora"},"ui_waiting_for_ifood":{"message":"Esperando o iFood"},"ui_restaurant_logo":{"message":"Logo do restaurante"},"ui_courier_photo":{"message":"Foto do entregador"},"ui_language":{"message":"Idioma"},"order_arrives":{"message":"Chega em ~$count$ min","placeholders":{"count":{"content":"$1"}}},"order_late":{"message":"Há $count$ min de atraso","placeholders":{"count":{"content":"$1"}}},"order_route_late":{"message":"Há $count$ min além da estimativa","placeholders":{"count":{"content":"$1"}}},"order_by":{"message":"Até $time$","placeholders":{"time":{"content":"$1"}}},"order_waiting":{"message":"Aguardando $items$","placeholders":{"items":{"content":"$1"}}},"order_route":{"message":"$distance$ km · $vehicle$ · saiu às $time$","placeholders":{"distance":{"content":"$1"},"vehicle":{"content":"$2"},"time":{"content":"$3"}}},"order_number":{"message":"Pedido $number$","placeholders":{"number":{"content":"$1"}}},"order_updated":{"message":"Evento $event$ · consulta $time$","placeholders":{"event":{"content":"$1"},"time":{"content":"$2"}}},"order_unavailable":{"message":"Atualização não autorizada ($reason$). Aguardando o iFood atualizar.","placeholders":{"reason":{"content":"$1"}}},"pip_expand":{"message":"Expandir acompanhamento"},"pip_collapse":{"message":"Recolher acompanhamento"},"language_pt":{"message":"Português (Brasil)"},"language_en":{"message":"Inglês"},"language_es":{"message":"Espanhol"}};
 },
 function(module,exports,require){
-module.exports = {"pip_eta_late":{"message":"Delayed"},"pip_eta_minutes":{"message":"~$count$ min","placeholders":{"count":{"content":"$1"}}},"pip_estimated_arrival":{"message":"Estimated arrival"},"ui_update_failed":{"message":"Update failed"},"extensionName":{"message":"iFood PiP — Order Mini Window"},"extensionDescription":{"message":"Unofficial iFood order tracking in a compact floating window, with delivery status, route estimates and three interface languages."},"ui_order_created":{"message":"Order created"},"ui_order_placed":{"message":"Order placed"},"ui_order_confirmed":{"message":"Order confirmed"},"ui_the_restaurant_is_preparing_your_order":{"message":"The restaurant is preparing your order"},"ui_your_order_is_being_packed":{"message":"Your order is being packed"},"ui_courier_assigned":{"message":"Courier assigned"},"ui_courier_accepted_the_delivery":{"message":"Courier accepted the delivery"},"ui_courier_heading_to_the_restaurant":{"message":"Courier heading to the restaurant"},"ui_courier_arrived_at_the_restaurant":{"message":"Courier arrived at the restaurant"},"ui_order_ready_for_pickup":{"message":"Order ready for pickup"},"ui_order_packed":{"message":"Order packed"},"ui_courier_picked_up_your_order":{"message":"Courier picked up your order"},"ui_order_out_for_delivery":{"message":"Order out for delivery"},"ui_your_order_is_on_its_way":{"message":"Your order is on its way"},"ui_courier_arrived_at_your_address":{"message":"Courier arrived at your address"},"ui_order_delivered":{"message":"Order delivered"},"ui_order_completed":{"message":"Order completed"},"ui_order_canceled":{"message":"Order canceled"},"ui_order_ready_courier_heading_to_the_store":{"message":"Order ready · courier heading to the store"},"ui_waiting_for_an_order_update":{"message":"Waiting for an order update"},"ui_checking_order_updates":{"message":"Checking order updates…"},"ui_your_order_is_being_prepared_for_delivery":{"message":"Your order is being prepared for delivery"},"ui_ifood_order":{"message":"iFood order"},"ui_order":{"message":"Order"},"ui_live_order_tracking":{"message":"Live order tracking"},"ui_your_order_ifood_pip":{"message":"Your order · iFood PiP"},"ui_order_mini_window":{"message":"Order mini window"},"ui_close_mini_window":{"message":"Close mini window"},"ui_open_ifood_order_in_picture_in_picture":{"message":"Open iFood order in Picture-in-Picture"},"ui_your_browser_does_not_support_document_picture_in_picture_here":{"message":"Your browser does not support Document Picture-in-Picture here."},"ui_could_not_open_the_mini_window_click_the_button_again":{"message":"Could not open the mini window. Click the button again."},"ui_could_not_open_the_pip_window":{"message":"Could not open the PiP window."},"ui_unexpected_order_response_from_ifood":{"message":"Unexpected order response from iFood."},"ui_waiting_for_ifood_data_reload_the_page_if_needed":{"message":"Waiting for iFood data. Reload the page if needed."},"ui_could_not_refresh_waiting_for_ifood":{"message":"Could not refresh. Waiting for iFood."},"ui_enjoy_your_meal":{"message":"Enjoy your meal!"},"ui_your_order_has_been_delivered":{"message":"Your order has been delivered."},"ui_completed":{"message":"Completed"},"ui_see_details_on_the_order_page":{"message":"See details on the order page."},"ui_closed":{"message":"Closed"},"ui_your_courier_is_here":{"message":"Your courier is here!"},"ui_get_ready_to_receive_your_order":{"message":"Get ready to receive your order."},"ui_courier_at_your_address":{"message":"Courier at your address"},"ui_order_delayed":{"message":"Order delayed"},"ui_the_expected_time_has_passed":{"message":"The expected time has passed"},"ui_waiting_for_an_updated_ifood_estimate":{"message":"Waiting for an updated iFood estimate"},"ui_delivery_window":{"message":"Delivery window"},"ui_delivery_window_tomorrow":{"message":"Delivery window · tomorrow"},"ui_tracking_your_order":{"message":"Tracking your order"},"ui_the_estimate_appears_when_ifood_provides_it":{"message":"The estimate appears when iFood provides it."},"ui_not_enough_data_for_an_estimate":{"message":"Not enough data for an estimate"},"ui_out_for_delivery":{"message":"Out for delivery"},"ui_store_to_address_distance":{"message":"store-to-address distance"},"ui_vehicle":{"message":"vehicle"},"ui_departure_time":{"message":"departure time"},"ui_not_enough_trip_data_for_an_estimate":{"message":"Not enough trip data for an estimate"},"ui_estimated_trip_time_exceeded":{"message":"Estimated trip time exceeded"},"ui_local_route_and_vehicle_estimate":{"message":"Local route and vehicle estimate"},"ui_local_estimate_geographic_distance_1_3":{"message":"Local estimate · geographic distance × 1.3"},"ui_local_estimate_route_distance":{"message":"Local estimate · route distance"},"ui_order_status":{"message":"Order status"},"ui_order_progress":{"message":"Order progress"},"ui_confirmed":{"message":"Confirmed"},"ui_preparing":{"message":"Preparing"},"ui_on_the_way":{"message":"On the way"},"ui_delivered":{"message":"Delivered"},"ui_delivery_completed":{"message":"Delivery completed"},"ui_heading_to_the_restaurant":{"message":"Heading to the restaurant"},"ui_at_the_restaurant":{"message":"At the restaurant"},"ui_delivering_your_order":{"message":"Delivering your order"},"ui_courier":{"message":"Courier"},"ui_motorbike":{"message":"Motorbike"},"ui_bicycle":{"message":"Bicycle"},"ui_car":{"message":"Car"},"ui_delivery_code":{"message":"Delivery code"},"ui_share_when_receiving_your_order":{"message":"Share when receiving your order"},"ui_refresh":{"message":"Refresh"},"ui_view_order":{"message":"View order"},"ui_check_for_updates_now":{"message":"Check for updates now"},"ui_waiting_for_ifood":{"message":"Waiting for iFood"},"ui_restaurant_logo":{"message":"Restaurant logo"},"ui_courier_photo":{"message":"Courier photo"},"ui_language":{"message":"Language"},"order_arrives":{"message":"Arrives in ~$count$ min","placeholders":{"count":{"content":"$1"}}},"order_late":{"message":"$count$ min late","placeholders":{"count":{"content":"$1"}}},"order_route_late":{"message":"$count$ min past the estimate","placeholders":{"count":{"content":"$1"}}},"order_by":{"message":"By $time$","placeholders":{"time":{"content":"$1"}}},"order_waiting":{"message":"Waiting for $items$","placeholders":{"items":{"content":"$1"}}},"order_route":{"message":"$distance$ km · $vehicle$ · left $time$","placeholders":{"distance":{"content":"$1"},"vehicle":{"content":"$2"},"time":{"content":"$3"}}},"order_number":{"message":"Order $number$","placeholders":{"number":{"content":"$1"}}},"order_updated":{"message":"Event $event$ · checked $time$","placeholders":{"event":{"content":"$1"},"time":{"content":"$2"}}},"order_unavailable":{"message":"Update unavailable ($reason$). Waiting for iFood.","placeholders":{"reason":{"content":"$1"}}},"pip_expand":{"message":"Expand tracking"},"pip_collapse":{"message":"Collapse tracking"},"language_pt":{"message":"Portuguese (Brazil)"},"language_en":{"message":"English"},"language_es":{"message":"Spanish"}};
+module.exports = {"pip_eta_late":{"message":"Delayed"},"pip_eta_minutes":{"message":"~$count$ min","placeholders":{"count":{"content":"$1"}}},"pip_estimated_arrival":{"message":"Estimated arrival"},"ui_update_failed":{"message":"Update failed"},"extensionName":{"message":"iFood PiP — Order Mini Window"},"extensionDescription":{"message":"Unofficial iFood order tracking in a compact floating window, with delivery status, route estimates and three interface languages."},"ui_order_created":{"message":"Order created"},"ui_order_placed":{"message":"Order placed"},"ui_order_confirmed":{"message":"Order confirmed"},"ui_the_restaurant_is_preparing_your_order":{"message":"Preparing your order"},"ui_your_order_is_being_packed":{"message":"Your order is being packed"},"ui_courier_assigned":{"message":"Courier assigned"},"ui_courier_accepted_the_delivery":{"message":"Courier accepted the delivery"},"ui_courier_heading_to_the_restaurant":{"message":"Courier heading to the restaurant"},"ui_courier_arrived_at_the_restaurant":{"message":"Courier arrived at the restaurant"},"ui_order_ready_for_pickup":{"message":"Order ready for pickup"},"ui_order_packed":{"message":"Order packed"},"ui_courier_picked_up_your_order":{"message":"Courier picked up your order"},"ui_order_out_for_delivery":{"message":"Order out for delivery"},"ui_your_order_is_on_its_way":{"message":"Your order is on its way"},"ui_courier_arrived_at_your_address":{"message":"Courier arrived at your address"},"ui_order_delivered":{"message":"Order delivered"},"ui_order_completed":{"message":"Order completed"},"ui_order_canceled":{"message":"Order canceled"},"ui_order_ready_courier_heading_to_the_store":{"message":"Order ready · courier heading to the store"},"ui_waiting_for_an_order_update":{"message":"Waiting for an order update"},"ui_checking_order_updates":{"message":"Checking order updates…"},"ui_your_order_is_being_prepared_for_delivery":{"message":"Your order is being prepared for delivery"},"ui_ifood_order":{"message":"iFood order"},"ui_order":{"message":"Order"},"ui_live_order_tracking":{"message":"Live order tracking"},"ui_your_order_ifood_pip":{"message":"Your order · iFood PiP"},"ui_order_mini_window":{"message":"Order mini window"},"ui_close_mini_window":{"message":"Close mini window"},"ui_open_ifood_order_in_picture_in_picture":{"message":"Open iFood order in Picture-in-Picture"},"ui_your_browser_does_not_support_document_picture_in_picture_here":{"message":"Your browser does not support Document Picture-in-Picture here."},"ui_could_not_open_the_mini_window_click_the_button_again":{"message":"Could not open the mini window. Click the button again."},"ui_could_not_open_the_pip_window":{"message":"Could not open the PiP window."},"ui_unexpected_order_response_from_ifood":{"message":"Unexpected order response from iFood."},"ui_waiting_for_ifood_data_reload_the_page_if_needed":{"message":"Waiting for iFood data. Reload the page if needed."},"ui_could_not_refresh_waiting_for_ifood":{"message":"Could not refresh. Waiting for iFood."},"ui_refresh_paused_open_order":{"message":"Updates paused. Open your iFood order and refresh the page."},"ui_preparation_started_at":{"message":"Preparation started"},"ui_your_order_has_been_delivered":{"message":"Your order has been delivered."},"ui_completed":{"message":"Completed"},"ui_see_details_on_the_order_page":{"message":"See details on the order page."},"ui_closed":{"message":"Closed"},"ui_your_courier_is_here":{"message":"Your courier is here!"},"ui_get_ready_to_receive_your_order":{"message":"Get ready to receive your order."},"ui_courier_at_your_address":{"message":"Courier at your address"},"ui_order_delayed":{"message":"Order delayed"},"ui_the_expected_time_has_passed":{"message":"The expected time has passed"},"ui_waiting_for_an_updated_ifood_estimate":{"message":"Waiting for an updated iFood estimate"},"ui_delivery_window":{"message":"Delivery window"},"ui_delivery_window_tomorrow":{"message":"Delivery window · tomorrow"},"ui_tracking_your_order":{"message":"Tracking your order"},"ui_the_estimate_appears_when_ifood_provides_it":{"message":"The estimate appears when iFood provides it."},"ui_not_enough_data_for_an_estimate":{"message":"Not enough data for an estimate"},"ui_out_for_delivery":{"message":"Out for delivery"},"ui_store_to_address_distance":{"message":"store-to-address distance"},"ui_vehicle":{"message":"vehicle"},"ui_departure_time":{"message":"departure time"},"ui_not_enough_trip_data_for_an_estimate":{"message":"Not enough trip data for an estimate"},"ui_estimated_trip_time_exceeded":{"message":"Estimated trip time exceeded"},"ui_local_route_and_vehicle_estimate":{"message":"Local route and vehicle estimate"},"ui_local_estimate_geographic_distance_1_3":{"message":"Local estimate · geographic distance × 1.3"},"ui_local_estimate_route_distance":{"message":"Local estimate · route distance"},"ui_order_status":{"message":"Order status"},"ui_order_progress":{"message":"Order progress"},"ui_confirmed":{"message":"Confirmed"},"ui_preparing":{"message":"Preparing"},"ui_on_the_way":{"message":"On the way"},"ui_delivered":{"message":"Delivered"},"ui_delivery_completed":{"message":"Delivery completed"},"ui_heading_to_the_restaurant":{"message":"Heading to the restaurant"},"ui_at_the_restaurant":{"message":"At the restaurant"},"ui_delivering_your_order":{"message":"Delivering your order"},"ui_courier":{"message":"Courier"},"ui_motorbike":{"message":"Motorbike"},"ui_bicycle":{"message":"Bicycle"},"ui_car":{"message":"Car"},"ui_delivery_code":{"message":"Delivery code"},"ui_share_when_receiving_your_order":{"message":"Share when receiving your order"},"ui_refresh":{"message":"Refresh"},"ui_view_order":{"message":"View order"},"ui_check_for_updates_now":{"message":"Check for updates now"},"ui_waiting_for_ifood":{"message":"Waiting for iFood"},"ui_restaurant_logo":{"message":"Restaurant logo"},"ui_courier_photo":{"message":"Courier photo"},"ui_language":{"message":"Language"},"order_arrives":{"message":"Arrives in ~$count$ min","placeholders":{"count":{"content":"$1"}}},"order_late":{"message":"$count$ min late","placeholders":{"count":{"content":"$1"}}},"order_route_late":{"message":"$count$ min past the estimate","placeholders":{"count":{"content":"$1"}}},"order_by":{"message":"By $time$","placeholders":{"time":{"content":"$1"}}},"order_waiting":{"message":"Waiting for $items$","placeholders":{"items":{"content":"$1"}}},"order_route":{"message":"$distance$ km · $vehicle$ · left $time$","placeholders":{"distance":{"content":"$1"},"vehicle":{"content":"$2"},"time":{"content":"$3"}}},"order_number":{"message":"Order $number$","placeholders":{"number":{"content":"$1"}}},"order_updated":{"message":"Event $event$ · checked $time$","placeholders":{"event":{"content":"$1"},"time":{"content":"$2"}}},"order_unavailable":{"message":"Update unavailable ($reason$). Waiting for iFood.","placeholders":{"reason":{"content":"$1"}}},"pip_expand":{"message":"Expand tracking"},"pip_collapse":{"message":"Collapse tracking"},"language_pt":{"message":"Portuguese (Brazil)"},"language_en":{"message":"English"},"language_es":{"message":"Spanish"}};
 },
 function(module,exports,require){
-module.exports = {"pip_eta_late":{"message":"Retrasado"},"pip_eta_minutes":{"message":"~$count$ min","placeholders":{"count":{"content":"$1"}}},"pip_estimated_arrival":{"message":"Llegada estimada"},"ui_update_failed":{"message":"Error al actualizar"},"extensionName":{"message":"iFood PiP — Pedido en Miniventana"},"extensionDescription":{"message":"Sigue tu pedido de iFood en una ventana flotante compacta, con estado y previsión de entrega. Extensión independiente."},"ui_order_created":{"message":"Pedido creado"},"ui_order_placed":{"message":"Pedido realizado"},"ui_order_confirmed":{"message":"Pedido confirmado"},"ui_the_restaurant_is_preparing_your_order":{"message":"El restaurante está preparando tu pedido"},"ui_your_order_is_being_packed":{"message":"Tu pedido se está preparando"},"ui_courier_assigned":{"message":"Repartidor asignado"},"ui_courier_accepted_the_delivery":{"message":"El repartidor aceptó la entrega"},"ui_courier_heading_to_the_restaurant":{"message":"El repartidor va al restaurante"},"ui_courier_arrived_at_the_restaurant":{"message":"El repartidor llegó al restaurante"},"ui_order_ready_for_pickup":{"message":"Pedido listo para recoger"},"ui_order_packed":{"message":"Preparación terminada"},"ui_courier_picked_up_your_order":{"message":"El repartidor recogió tu pedido"},"ui_order_out_for_delivery":{"message":"Pedido en reparto"},"ui_your_order_is_on_its_way":{"message":"Tu pedido está en camino"},"ui_courier_arrived_at_your_address":{"message":"El repartidor llegó a tu dirección"},"ui_order_delivered":{"message":"Pedido entregado"},"ui_order_completed":{"message":"Pedido completado"},"ui_order_canceled":{"message":"Pedido cancelado"},"ui_order_ready_courier_heading_to_the_store":{"message":"Pedido listo · repartidor hacia la tienda"},"ui_waiting_for_an_order_update":{"message":"Esperando actualización del pedido"},"ui_checking_order_updates":{"message":"Consultando el pedido…"},"ui_your_order_is_being_prepared_for_delivery":{"message":"Tu pedido se está preparando para el reparto"},"ui_ifood_order":{"message":"Pedido iFood"},"ui_order":{"message":"Pedido"},"ui_live_order_tracking":{"message":"Seguimiento en vivo"},"ui_your_order_ifood_pip":{"message":"Tu pedido · iFood PiP"},"ui_order_mini_window":{"message":"Ventana del pedido"},"ui_close_mini_window":{"message":"Cerrar miniventana"},"ui_open_ifood_order_in_picture_in_picture":{"message":"Abrir pedido iFood en Picture-in-Picture"},"ui_your_browser_does_not_support_document_picture_in_picture_here":{"message":"Tu navegador no admite Document Picture-in-Picture aquí."},"ui_could_not_open_the_mini_window_click_the_button_again":{"message":"No se pudo abrir la ventana. Pulsa el botón otra vez."},"ui_could_not_open_the_pip_window":{"message":"No se pudo abrir la ventana PiP."},"ui_unexpected_order_response_from_ifood":{"message":"Respuesta inesperada de iFood."},"ui_waiting_for_ifood_data_reload_the_page_if_needed":{"message":"Esperando datos de iFood. Recarga la página si es necesario."},"ui_could_not_refresh_waiting_for_ifood":{"message":"No se pudo actualizar. Esperando a iFood."},"ui_enjoy_your_meal":{"message":"¡Buen provecho!"},"ui_your_order_has_been_delivered":{"message":"Tu pedido ha sido entregado."},"ui_completed":{"message":"Completado"},"ui_see_details_on_the_order_page":{"message":"Consulta los detalles en la página del pedido."},"ui_closed":{"message":"Finalizado"},"ui_your_courier_is_here":{"message":"¡Tu repartidor llegó!"},"ui_get_ready_to_receive_your_order":{"message":"Prepárate para recibir tu pedido."},"ui_courier_at_your_address":{"message":"Repartidor en tu dirección"},"ui_order_delayed":{"message":"Pedido retrasado"},"ui_the_expected_time_has_passed":{"message":"La hora prevista ya pasó"},"ui_waiting_for_an_updated_ifood_estimate":{"message":"Esperando nueva previsión de iFood"},"ui_delivery_window":{"message":"Horario de entrega"},"ui_delivery_window_tomorrow":{"message":"Horario de entrega · mañana"},"ui_tracking_your_order":{"message":"Siguiendo tu pedido"},"ui_the_estimate_appears_when_ifood_provides_it":{"message":"La previsión aparecerá cuando iFood la indique."},"ui_not_enough_data_for_an_estimate":{"message":"Faltan datos para estimar"},"ui_out_for_delivery":{"message":"En reparto"},"ui_store_to_address_distance":{"message":"distancia tienda → destino"},"ui_vehicle":{"message":"vehículo"},"ui_departure_time":{"message":"hora de salida"},"ui_not_enough_trip_data_for_an_estimate":{"message":"Faltan datos para estimar el trayecto"},"ui_estimated_trip_time_exceeded":{"message":"Tiempo estimado de trayecto superado"},"ui_local_route_and_vehicle_estimate":{"message":"Estimación local por trayecto y vehículo"},"ui_local_estimate_geographic_distance_1_3":{"message":"Estimación local · distancia geográfica × 1,3"},"ui_local_estimate_route_distance":{"message":"Estimación local · distancia del trayecto"},"ui_order_status":{"message":"Estado del pedido"},"ui_order_progress":{"message":"Progreso del pedido"},"ui_confirmed":{"message":"Confirmado"},"ui_preparing":{"message":"Preparando"},"ui_on_the_way":{"message":"En camino"},"ui_delivered":{"message":"Entregado"},"ui_delivery_completed":{"message":"Entrega finalizada"},"ui_heading_to_the_restaurant":{"message":"Hacia el restaurante"},"ui_at_the_restaurant":{"message":"En el restaurante"},"ui_delivering_your_order":{"message":"Llevando tu pedido"},"ui_courier":{"message":"Repartidor"},"ui_motorbike":{"message":"Moto"},"ui_bicycle":{"message":"Bicicleta"},"ui_car":{"message":"Coche"},"ui_delivery_code":{"message":"Código de entrega"},"ui_share_when_receiving_your_order":{"message":"Indícalo al recibir tu pedido"},"ui_refresh":{"message":"Actualizar"},"ui_view_order":{"message":"Ver pedido"},"ui_check_for_updates_now":{"message":"Consultar actualizaciones ahora"},"ui_waiting_for_ifood":{"message":"Esperando a iFood"},"ui_restaurant_logo":{"message":"Logo del restaurante"},"ui_courier_photo":{"message":"Foto del repartidor"},"ui_language":{"message":"Idioma"},"order_arrives":{"message":"Llega en ~$count$ min","placeholders":{"count":{"content":"$1"}}},"order_late":{"message":"$count$ min de retraso","placeholders":{"count":{"content":"$1"}}},"order_route_late":{"message":"$count$ min sobre la estimación","placeholders":{"count":{"content":"$1"}}},"order_by":{"message":"Hasta $time$","placeholders":{"time":{"content":"$1"}}},"order_waiting":{"message":"Esperando $items$","placeholders":{"items":{"content":"$1"}}},"order_route":{"message":"$distance$ km · $vehicle$ · salió a las $time$","placeholders":{"distance":{"content":"$1"},"vehicle":{"content":"$2"},"time":{"content":"$3"}}},"order_number":{"message":"Pedido $number$","placeholders":{"number":{"content":"$1"}}},"order_updated":{"message":"Evento $event$ · consulta $time$","placeholders":{"event":{"content":"$1"},"time":{"content":"$2"}}},"order_unavailable":{"message":"Actualización no disponible ($reason$). Esperando a iFood.","placeholders":{"reason":{"content":"$1"}}},"pip_expand":{"message":"Ampliar seguimiento"},"pip_collapse":{"message":"Contraer seguimiento"},"language_pt":{"message":"Portugués (Brasil)"},"language_en":{"message":"Inglés"},"language_es":{"message":"Español"}};
+module.exports = {"pip_eta_late":{"message":"Retrasado"},"pip_eta_minutes":{"message":"~$count$ min","placeholders":{"count":{"content":"$1"}}},"pip_estimated_arrival":{"message":"Llegada estimada"},"ui_update_failed":{"message":"Error al actualizar"},"extensionName":{"message":"iFood PiP — Pedido en Miniventana"},"extensionDescription":{"message":"Sigue tu pedido de iFood en una ventana flotante compacta, con estado y previsión de entrega. Extensión independiente."},"ui_order_created":{"message":"Pedido creado"},"ui_order_placed":{"message":"Pedido realizado"},"ui_order_confirmed":{"message":"Pedido confirmado"},"ui_the_restaurant_is_preparing_your_order":{"message":"Preparando tu pedido"},"ui_your_order_is_being_packed":{"message":"Tu pedido se está preparando"},"ui_courier_assigned":{"message":"Repartidor asignado"},"ui_courier_accepted_the_delivery":{"message":"El repartidor aceptó la entrega"},"ui_courier_heading_to_the_restaurant":{"message":"El repartidor va al restaurante"},"ui_courier_arrived_at_the_restaurant":{"message":"El repartidor llegó al restaurante"},"ui_order_ready_for_pickup":{"message":"Pedido listo para recoger"},"ui_order_packed":{"message":"Preparación terminada"},"ui_courier_picked_up_your_order":{"message":"El repartidor recogió tu pedido"},"ui_order_out_for_delivery":{"message":"Pedido en reparto"},"ui_your_order_is_on_its_way":{"message":"Tu pedido está en camino"},"ui_courier_arrived_at_your_address":{"message":"El repartidor llegó a tu dirección"},"ui_order_delivered":{"message":"Pedido entregado"},"ui_order_completed":{"message":"Pedido completado"},"ui_order_canceled":{"message":"Pedido cancelado"},"ui_order_ready_courier_heading_to_the_store":{"message":"Pedido listo · repartidor hacia la tienda"},"ui_waiting_for_an_order_update":{"message":"Esperando actualización del pedido"},"ui_checking_order_updates":{"message":"Consultando el pedido…"},"ui_your_order_is_being_prepared_for_delivery":{"message":"Tu pedido se está preparando para el reparto"},"ui_ifood_order":{"message":"Pedido iFood"},"ui_order":{"message":"Pedido"},"ui_live_order_tracking":{"message":"Seguimiento en vivo"},"ui_your_order_ifood_pip":{"message":"Tu pedido · iFood PiP"},"ui_order_mini_window":{"message":"Ventana del pedido"},"ui_close_mini_window":{"message":"Cerrar miniventana"},"ui_open_ifood_order_in_picture_in_picture":{"message":"Abrir pedido iFood en Picture-in-Picture"},"ui_your_browser_does_not_support_document_picture_in_picture_here":{"message":"Tu navegador no admite Document Picture-in-Picture aquí."},"ui_could_not_open_the_mini_window_click_the_button_again":{"message":"No se pudo abrir la ventana. Pulsa el botón otra vez."},"ui_could_not_open_the_pip_window":{"message":"No se pudo abrir la ventana PiP."},"ui_unexpected_order_response_from_ifood":{"message":"Respuesta inesperada de iFood."},"ui_waiting_for_ifood_data_reload_the_page_if_needed":{"message":"Esperando datos de iFood. Recarga la página si es necesario."},"ui_could_not_refresh_waiting_for_ifood":{"message":"No se pudo actualizar. Esperando a iFood."},"ui_refresh_paused_open_order":{"message":"Consultas pausadas. Abre tu pedido en iFood y actualiza la página."},"ui_preparation_started_at":{"message":"Inicio de la preparación"},"ui_your_order_has_been_delivered":{"message":"Tu pedido ha sido entregado."},"ui_completed":{"message":"Completado"},"ui_see_details_on_the_order_page":{"message":"Consulta los detalles en la página del pedido."},"ui_closed":{"message":"Finalizado"},"ui_your_courier_is_here":{"message":"¡Tu repartidor llegó!"},"ui_get_ready_to_receive_your_order":{"message":"Prepárate para recibir tu pedido."},"ui_courier_at_your_address":{"message":"Repartidor en tu dirección"},"ui_order_delayed":{"message":"Pedido retrasado"},"ui_the_expected_time_has_passed":{"message":"La hora prevista ya pasó"},"ui_waiting_for_an_updated_ifood_estimate":{"message":"Esperando nueva previsión de iFood"},"ui_delivery_window":{"message":"Horario de entrega"},"ui_delivery_window_tomorrow":{"message":"Horario de entrega · mañana"},"ui_tracking_your_order":{"message":"Siguiendo tu pedido"},"ui_the_estimate_appears_when_ifood_provides_it":{"message":"La previsión aparecerá cuando iFood la indique."},"ui_not_enough_data_for_an_estimate":{"message":"Faltan datos para estimar"},"ui_out_for_delivery":{"message":"En reparto"},"ui_store_to_address_distance":{"message":"distancia tienda → destino"},"ui_vehicle":{"message":"vehículo"},"ui_departure_time":{"message":"hora de salida"},"ui_not_enough_trip_data_for_an_estimate":{"message":"Faltan datos para estimar el trayecto"},"ui_estimated_trip_time_exceeded":{"message":"Tiempo estimado de trayecto superado"},"ui_local_route_and_vehicle_estimate":{"message":"Estimación local por trayecto y vehículo"},"ui_local_estimate_geographic_distance_1_3":{"message":"Estimación local · distancia geográfica × 1,3"},"ui_local_estimate_route_distance":{"message":"Estimación local · distancia del trayecto"},"ui_order_status":{"message":"Estado del pedido"},"ui_order_progress":{"message":"Progreso del pedido"},"ui_confirmed":{"message":"Confirmado"},"ui_preparing":{"message":"Preparando"},"ui_on_the_way":{"message":"En camino"},"ui_delivered":{"message":"Entregado"},"ui_delivery_completed":{"message":"Entrega finalizada"},"ui_heading_to_the_restaurant":{"message":"Hacia el restaurante"},"ui_at_the_restaurant":{"message":"En el restaurante"},"ui_delivering_your_order":{"message":"Llevando tu pedido"},"ui_courier":{"message":"Repartidor"},"ui_motorbike":{"message":"Moto"},"ui_bicycle":{"message":"Bicicleta"},"ui_car":{"message":"Coche"},"ui_delivery_code":{"message":"Código de entrega"},"ui_share_when_receiving_your_order":{"message":"Indícalo al recibir tu pedido"},"ui_refresh":{"message":"Actualizar"},"ui_view_order":{"message":"Ver pedido"},"ui_check_for_updates_now":{"message":"Consultar actualizaciones ahora"},"ui_waiting_for_ifood":{"message":"Esperando a iFood"},"ui_restaurant_logo":{"message":"Logo del restaurante"},"ui_courier_photo":{"message":"Foto del repartidor"},"ui_language":{"message":"Idioma"},"order_arrives":{"message":"Llega en ~$count$ min","placeholders":{"count":{"content":"$1"}}},"order_late":{"message":"$count$ min de retraso","placeholders":{"count":{"content":"$1"}}},"order_route_late":{"message":"$count$ min sobre la estimación","placeholders":{"count":{"content":"$1"}}},"order_by":{"message":"Hasta $time$","placeholders":{"time":{"content":"$1"}}},"order_waiting":{"message":"Esperando $items$","placeholders":{"items":{"content":"$1"}}},"order_route":{"message":"$distance$ km · $vehicle$ · salió a las $time$","placeholders":{"distance":{"content":"$1"},"vehicle":{"content":"$2"},"time":{"content":"$3"}}},"order_number":{"message":"Pedido $number$","placeholders":{"number":{"content":"$1"}}},"order_updated":{"message":"Evento $event$ · consulta $time$","placeholders":{"event":{"content":"$1"},"time":{"content":"$2"}}},"order_unavailable":{"message":"Actualización no disponible ($reason$). Esperando a iFood.","placeholders":{"reason":{"content":"$1"}}},"pip_expand":{"message":"Ampliar seguimiento"},"pip_collapse":{"message":"Contraer seguimiento"},"language_pt":{"message":"Portugués (Brasil)"},"language_en":{"message":"Inglés"},"language_es":{"message":"Español"}};
+},
+function(module,exports,require){
+const {cleanStore,safeImage,finiteDistance,readPageStatus} = require(1);
+module.exports = function createPageReader(state) {
+  function readOptionalPageInfo() {
+    // Identidade, previsão e status visível complementam os eventos HTTP.
+    const lines = (document.body?.innerText || '').split(/\n+/)
+      .map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const etaIndex = lines.findIndex(s => /previs[aã]o de entrega/i.test(s));
+    const etaLine = etaIndex >= 0 ? lines.slice(etaIndex, etaIndex + 5).join(' ') : '';
+    const etaMatch = etaLine.match(/(?:Hoje|Amanh[aã]|\w+-feira)?,?\s*\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}/i);
+    const merchantNode = document.querySelector('[data-testid="merchant-name"], [data-testid="restaurant-name"], .merchant-info__name, .order-details__merchant-name, .order-details-header__merchant-name');
+    const merchantLink = [...document.querySelectorAll('a[href*="/delivery/"], a[href*="/restaurantes/"]')]
+      .find(a => cleanStore(a.textContent) && !/ver|voltar|início|restaurantes/i.test(a.textContent));
+    // The live iFood page uses generated class names. Anchor the identity to
+    // the order-number label: its preceding sibling is the merchant name.
+    const orderNumberNode = [...document.querySelectorAll('span,p,small,strong')]
+      .find(el => !el.children.length && /^Pedido\s*(?:N\s*[º°o.]?|#)\s*\d+$/i.test(el.textContent.trim()));
+    const orderHeader = orderNumberNode?.parentElement?.parentElement;
+    const identityName = orderNumberNode?.previousElementSibling?.textContent || '';
+    const store = cleanStore(merchantNode?.textContent || '') || cleanStore(identityName) || state.orderDetails.store || cleanStore(merchantLink?.textContent || '');
+    const merchantImage = document.querySelector('[data-testid="merchant-logo"], [data-testid="restaurant-logo"], .merchant-info img, .order-details__merchant img');
+    // An exact alt/name match is safer than taking the first image (often the driver).
+    const image = merchantImage || (store ? [...document.querySelectorAll('img[alt], [role="img"][alt]')]
+      .find(img => img.getAttribute('alt')?.trim() === store) : null) ||
+      orderHeader?.querySelector('img, [role="img"][src]');
+    const storePhoto = safeImage(image?.currentSrc || image?.src || image?.getAttribute('src')) || state.orderDetails.storePhoto || '';
+    const number = lines.join(' ').match(/Pedido\s*(?:N\s*[º°o.]?|#)\s*(\d{2,})/i)?.[1] || '';
+    const codeText = lines.join(' ').match(/c[oó]digo (?:de|da) entrega\s*[:–-]?\s*(\d{4,6})\b/i)?.[1] || '';
+    const routeNode = document.querySelector('[data-route-distance-meters], [data-testid="delivery-distance"], [data-testid="route-distance"]');
+    const routeAttr = routeNode?.getAttribute('data-route-distance-meters');
+    const routeText = routeNode?.textContent?.match(/(\d+(?:[.,]\d+)?)\s*(km|m)\b/i);
+    const routeDistanceMeters = finiteDistance(routeAttr ? Number(routeAttr) : routeText ? Number(routeText[1].replace(',','.')) * (routeText[2].toLowerCase()==='km' ? 1000 : 1) : null);
+    return { store, storePhoto, number, code: codeText, routeDistanceMeters, pageStatus: readPageStatus(lines.join('\n')), eta: etaMatch ? etaMatch[0].replace(/\s*[-—]\s*/g, ' – ') : '' };
+  }
+
+
+  return readOptionalPageInfo;
+};
+
 },
 function(module,exports,require){
 const {extractDetails,summarizeEvents} = require(1);
@@ -475,20 +528,25 @@ module.exports = function createTraffic(context) {
     function recordEvents(json, orderId, fromPage = true) {
       try {
         const summary = summarizeEvents(json, orderId);
-        if (orderId !== getOrderId()) return;
+        if (orderId !== getOrderId()) return false;
         state.capturedSummary = { orderId, summary };
-        if (fromPage) state.lastPageUpdateAt = Date.now();
+        if (fromPage) {
+          state.lastPageUpdateAt = Date.now();
+          state.pollFailures = 0;
+        }
         if (state.pip && !state.pip.closed && state.activeOrderId === orderId) {
           state.snapshot = summary;
           renderPip();
           if (fromPage) queueNextPoll();
         }
+        return true;
       } catch (error) {
         // Respostas inesperadas não afetam o funcionamento normal do site.
         if (state.pip && !state.pip.closed) {
           state.snapshot.issue = "ui_unexpected_order_response_from_ifood";
           renderPip();
         }
+        return false;
       }
     }
 
@@ -563,8 +621,7 @@ module.exports = function createTraffic(context) {
       const response = await state.replay.call(state.pip);
       if (!response.ok) return { ok: false, reason: `HTTP ${response.status}` };
       const data = await response.json();
-      recordEvents(data, orderId, false);
-      return { ok: true };
+      return recordEvents(data, orderId, false) ? { ok: true } : { ok:false, reason:'invalid response' };
     };
   }
 
@@ -577,6 +634,8 @@ function(module,exports,require){
 const {message} = require(3);
 module.exports = function createPolling(context) {
   const {state,getOrderId,renderPip,refreshCaptured,POLL_INTERVAL} = context;
+  const isStopped = () => state.pollCompleted || state.pollFailures >= 4;
+  function resetFailures() { state.pollFailures = 0; }
   function stopPolling() {
     if (state.pollTimer !== null && state.pip) state.pip.clearTimeout(state.pollTimer);
     state.pollTimer = null;
@@ -585,13 +644,13 @@ module.exports = function createPolling(context) {
   function queueNextPoll(delay = POLL_INTERVAL) {
     stopPolling();
     // O relógio vive no documento PiP, que permanece visível com a aba em segundo plano.
-    if (state.pip && !state.pip.closed && getOrderId()) {
+    if (state.pip && !state.pip.closed && getOrderId() && !isStopped()) {
       state.pollTimer = state.pip.setTimeout(() => { state.pollTimer = null; pollEvents(); }, delay);
     }
   }
 
   async function pollEvents(force = false) {
-    if (!state.pip || state.pip.closed || state.pollInFlight) return;
+    if (!state.pip || state.pip.closed || state.pollInFlight || isStopped()) return;
     const requestWindow = state.pip;
     stopPolling();
     const orderId = getOrderId();
@@ -608,17 +667,21 @@ module.exports = function createPolling(context) {
       const result = await refreshCaptured(orderId);
       if (state.pip !== requestWindow || requestWindow.closed || getOrderId() !== orderId) return;
       if (!result.ok) {
+        state.pollFailures = (state.pollFailures || 0) + 1;
         state.snapshot.issue = result.reason === 'waiting'
           ? "ui_waiting_for_ifood_data_reload_the_page_if_needed"
           : message('order_unavailable',{reason:result.reason});
         if (result.reason === 'HTTP 429') retryAfter = 60000;
       } else {
+        resetFailures();
         state.snapshot.issue = '';
       }
+      if (state.pollFailures >= 4) state.snapshot.issue = 'ui_refresh_paused_open_order';
       renderPip();
     } catch {
-      if (state.pip === requestWindow && !requestWindow.closed) {
-        state.snapshot.issue = "ui_could_not_refresh_waiting_for_ifood";
+      if (state.pip === requestWindow && !requestWindow.closed && getOrderId() === orderId) {
+        state.pollFailures = (state.pollFailures || 0) + 1;
+        state.snapshot.issue = state.pollFailures >= 4 ? 'ui_refresh_paused_open_order' : "ui_could_not_refresh_waiting_for_ifood";
         renderPip();
       }
     } finally {
@@ -629,7 +692,7 @@ module.exports = function createPolling(context) {
   }
 
 
-  return {stopPolling,queueNextPoll,pollEvents};
+  return {stopPolling,queueNextPoll,pollEvents,isStopped,resetFailures};
 };
 
 },
@@ -639,7 +702,27 @@ module.exports = function createView(context) {
   const {state,tx,format,readOptionalPageInfo,estimateArrival,changeLanguage,pollEvents,toggleMode} = context;
   const {displaySnapshot} = require(1);
   const {message} = require(3);
+  const visibility = require(12);
   const statusText = data => tx(data.label);
+  function detailRows(data,extras) {
+    const allowed=visibility(data), rows=[];
+    if (!allowed.order) return rows;
+    if (extras.eta) rows.push(['ui_delivery_window',extras.eta.replace(/^Hoje,?\s*/i,'')]);
+    const meters=data.routeDistanceMeters || state.orderDetails.routeDistanceMeters || extras.routeDistanceMeters;
+    if (['shipping','arriving','delivered'].includes(data.stage) && meters>0) rows.push(['ui_store_to_address_distance',format.number(meters/1000)+' km']);
+    for (const [moment,label] of [['completed','ui_order_completed'],['arrived','ui_courier_at_your_address'],['departed','ui_departure_time'],['preparing','ui_preparation_started_at'],['confirmed','ui_order_confirmed'],['created','ui_order_created']]) {
+      if (data.timeline?.[moment] && (moment!=='departed' || !allowed.merchantWindow)) rows.push([label,format.time(data.timeline[moment])]);
+    }
+    return rows;
+  }
+  function fullHeight(snapshot=state.snapshot) {
+    const extras=readOptionalPageInfo(),data=displaySnapshot(snapshot,extras),allowed=visibility(data);
+    const courier=allowed.courier && Boolean(data.driver || state.orderDetails.driver);
+    const code=allowed.deliveryCode && Boolean(data.code || extras.code);
+    const details=detailRows(data,extras).length;
+    const eta=estimateArrival(data,extras);
+    return 198 + (eta.source?12:0) + Math.ceil(details/2)*31 + (details?8:0) + (courier?33:0) + (code?42:0) + (data.issue?30:0);
+  }
   const ICONS = {
     expand: '<path d="M14 4h6v6M20 4l-7 7M10 20H4v-6m0 6 7-7"/>',
     collapse: '<path d="M20 4l-7 7m0-6v6h6M4 20l7-7m-6 0h6v6"/>',
@@ -660,7 +743,7 @@ module.exports = function createView(context) {
     const doc = win.document;
     doc.title = tx("ui_your_order_ifood_pip");
     const style = doc.createElement('style');
-    style.textContent = require(11);
+    style.textContent = require(13);
     doc.head.append(style);
     doc.body.innerHTML = `<main class="shell">
       <button class="mode-toggle" id="toggle-mode" type="button"></button>
@@ -672,6 +755,7 @@ module.exports = function createView(context) {
       </section>
       <section class="driver" id="driver-card" hidden><div class="avatar" id="driver-avatar"></div><div><strong id="driver-name"></strong><div class="micro" id="driver-state"></div></div><span class="vehicle">${icon('bike')}<span id="vehicle"></span></span></section>
       <section class="code" id="code-card" hidden><div><div class="code-label">${icon('key')} <span data-i18n="ui_delivery_code">${tx("ui_delivery_code")}</span></div><small data-i18n="ui_share_when_receiving_your_order">${tx("ui_share_when_receiving_your_order")}</small></div><div class="digits" id="code"></div></section>
+      <dl class="order-details" id="order-details" hidden></dl>
       <div class="notice" id="note" role="status" hidden></div>
       <footer class="footer"><div class="footer-meta"><select class="language" id="language" aria-label="${tx("ui_language")}"><option value="en" data-language="language_en">EN</option><option value="pt" data-language="language_pt">PT</option><option value="es" data-language="language_es">ES</option></select><span class="updated" id="updated"></span></div><div class="actions"><button class="action" id="refresh" type="button" title="${tx("ui_check_for_updates_now")}">${icon('refresh')} <span data-i18n="ui_refresh">${tx("ui_refresh")}</span></button><button class="action" id="back" type="button"><span data-i18n="ui_view_order">${tx("ui_view_order")}</span> ${icon('arrow')}</button></div></footer>
     </main>`;
@@ -705,7 +789,7 @@ module.exports = function createView(context) {
   function renderPip() {
     if (!state.pip || state.pip.closed) return;
     const extras = readOptionalPageInfo(), data = displaySnapshot(state.snapshot, extras), eta = estimateArrival(data, extras);
-    const signature = JSON.stringify({data, extras, eta, orderId:state.activeOrderId, busy:state.pollInFlight, language:state.language, mode:state.mode});
+    const signature = JSON.stringify({data, extras, eta, orderId:state.activeOrderId, busy:state.pollInFlight, failures:state.pollFailures, completed:state.pollCompleted, language:state.language, mode:state.mode,height:state.pip.innerHeight});
     if (signature === state.previousSignature) return;
     state.previousSignature = signature;
     const doc = state.pip.document;
@@ -720,7 +804,9 @@ module.exports = function createView(context) {
     doc.getElementById('progress').setAttribute('aria-label',tx("ui_order_progress"));
     const set = (id,text) => { const el = doc.getElementById(id); if (el && el.textContent !== text) el.textContent = text; };
     const terminal = ['delivered','cancelled'].includes(data.stage);
+    const permitted = visibility(data);
     doc.body.dataset.mode = state.mode;
+    doc.body.classList.toggle('constrained',state.mode==='full' && state.pip.innerHeight<fullHeight()-4);
     const toggle = doc.getElementById('toggle-mode');
     const controlLabel = tx(state.mode === 'compact' ? 'pip_expand' : 'pip_collapse');
     toggle.title = controlLabel; toggle.setAttribute('aria-label',controlLabel);
@@ -731,21 +817,26 @@ module.exports = function createView(context) {
       doc.body.dataset.stage = data.stage;
     }
     const index = ({ loading:0, unknown:0, received:0, preparing:1, driver:1, atStore:1, shipping:2, arriving:2, delivered:4, cancelled:0 })[data.stage] ?? 0;
+    const progressStarted=index>0 || data.confirmed===true;
     doc.body.classList.toggle('terminal',terminal);
     doc.body.classList.toggle('late',Boolean(eta.late));
     doc.body.classList.toggle('pre-dispatch',Boolean(eta.preDispatch));
-    doc.body.classList.toggle('has-issue',Boolean(data.issue));
+    const issue=terminal ? '' : state.pollFailures>=4 ? 'ui_refresh_paused_open_order' : data.issue;
+    doc.body.classList.toggle('has-issue',Boolean(issue));
     doc.body.classList.toggle('cancelled',data.stage === 'cancelled');
-    set('restaurant',extras.store || tx("ui_ifood_order"));
-    doc.getElementById('restaurant').title=extras.store || tx("ui_ifood_order");
-    set('order-number',tx(message('order_number',{number:extras.number ? '#'+extras.number : '· '+(state.activeOrderId?.slice(0,8) || '—')})));
-    setAvatar(doc,'store-avatar',extras.storePhoto,'store');
+    const store=permitted.order ? extras.store : '';
+    set('restaurant',store || tx("ui_ifood_order"));
+    doc.getElementById('restaurant').title=store || tx("ui_ifood_order");
+    set('order-number',permitted.order ? tx(message('order_number',{number:extras.number ? '#'+extras.number : '· '+(state.activeOrderId?.slice(0,8) || '—')})) : '');
+    setAvatar(doc,'store-avatar',permitted.order ? extras.storePhoto : '','store');
     set('eta',tx(eta.title)); set('eta-detail',tx(eta.detail)); set('eta-source',tx(eta.source));
     set('status',statusText(data));
     // Compact mode preserves the actual status and progress. Its optional
     // ETA rail only appears when there is useful, non-redundant information.
-    const arrivalCode = data.stage === 'arriving' && (data.code || extras.code) && !data.codeValidated;
-    const hasCompactEta = Boolean(eta.preDispatch || eta.title?.key === 'order_arrives' || eta.late || arrivalCode);
+    const arrivalCode = permitted.deliveryCode && (data.code || extras.code);
+    const usefulEta=Boolean(eta.preDispatch || eta.title?.key === 'order_arrives' || eta.late);
+    const hasCompactEta = Boolean(usefulEta || arrivalCode);
+    doc.body.classList.toggle('compact-estimate',usefulEta);
     doc.body.classList.toggle('compact-has-eta',hasCompactEta);
     doc.body.classList.toggle('compact-terminal',terminal);
     doc.getElementById('eta-detail').hidden = false;
@@ -760,90 +851,74 @@ module.exports = function createView(context) {
     }
     doc.getElementById('status-symbol').innerHTML = data.stage === 'cancelled' ? '<span aria-hidden="true">×</span>' : icon(terminal ? 'check' : ['shipping','arriving','driver'].includes(data.stage) ? 'bike' : 'bag');
     for (let n=0;n<4;n++) {
-      doc.getElementById(`segment-${n}`).className = `segment${n<index ? ' done' : n===index && !terminal ? ' active' : ''}`;
-      doc.getElementById(`step-${n}`).className = 'step ' + (n<index ? 'done' : n===index && !terminal ? 'current' : '');
+      doc.getElementById(`segment-${n}`).className = `segment${n<index ? ' done' : n===index && !terminal && progressStarted ? ' active' : ''}`;
+      doc.getElementById(`step-${n}`).className = 'step ' + (n<index ? 'done' : n===index && !terminal && progressStarted ? 'current' : '');
     }
     const progress = doc.getElementById('progress');
     progress.setAttribute('aria-valuenow',String(index)); progress.setAttribute('aria-valuetext',statusText(data));
-    const driver = data.driver || state.orderDetails.driver;
+    const driver = permitted.courier ? data.driver || state.orderDetails.driver : '';
     doc.body.classList.toggle('compact-has-driver',Boolean(driver));
     doc.getElementById('driver-card').hidden = !driver;
     const driverStage = data.driverPhase || data.stage;
     set('driver-name',driver || ''); set('driver-state',tx(terminal ? "ui_delivery_completed" : data.driverLabel || (driverStage==='driver' ? "ui_heading_to_the_restaurant" : driverStage==='atStore' ? "ui_at_the_restaurant" : ['shipping','arriving'].includes(data.stage) ? "ui_delivering_your_order" : "ui_courier_assigned")));
-    set('vehicle',tx(data.modal || state.orderDetails.modal || "ui_courier")); setAvatar(doc,'driver-avatar',data.driverPhoto || state.orderDetails.driverPhoto,'driver');
-    const code = data.code || extras.code;
-    doc.getElementById('code-card').hidden = !code || data.codeValidated || terminal;
-    doc.body.classList.toggle('compact-show-code',state.mode === 'compact' && data.stage === 'arriving' && Boolean(code) && !data.codeValidated);
+    set('vehicle',permitted.courier ? tx(data.modal || state.orderDetails.modal || "ui_courier") : ''); setAvatar(doc,'driver-avatar',permitted.courier ? data.driverPhoto || state.orderDetails.driverPhoto : '','driver');
+    const code = permitted.deliveryCode ? data.code || extras.code : '';
+    doc.getElementById('code-card').setAttribute('aria-label',tx('ui_delivery_code'));
+    doc.getElementById('code-card').hidden = !code || !permitted.deliveryCode;
+    doc.body.classList.toggle('compact-show-code',state.mode === 'compact' && Boolean(code) && permitted.deliveryCode);
     const digits = doc.getElementById('code');
     if (digits.dataset.code !== code) {
       digits.dataset.code = code; digits.replaceChildren();
       for (const digit of code) { const span=doc.createElement('span'); span.className='digit'; span.textContent=digit; digits.append(span); }
     }
-    set('note',tx(data.issue || '')); doc.getElementById('note').hidden = !data.issue;
+    const details=doc.getElementById('order-details');
+    details.replaceChildren();
+    for (const [label,value] of detailRows(data,extras)) {
+      const cell=doc.createElement('div'),term=doc.createElement('dt'),description=doc.createElement('dd');
+      term.textContent=tx(label);description.textContent=value;cell.append(term,description);details.append(cell);
+    }
+    details.hidden=!details.children.length;
+    set('note',tx(issue || '')); doc.getElementById('note').hidden = !issue;
     const updatedText = tx(data.checkedAt ? message('order_updated',{event:format.time(data.eventTime) || '—',time:format.time(data.checkedAt)}) : 'ui_waiting_for_ifood');
-    const compactIssue = state.mode === 'compact' && data.issue;
+    const compactIssue = state.mode === 'compact' && issue;
     set('updated',compactIssue ? tx('ui_update_failed') : updatedText);
-    const updateDescription = compactIssue ? tx(data.issue) : updatedText;
+    const updateDescription = compactIssue ? tx(issue) : updatedText;
     doc.getElementById('updated').title = updateDescription;
     doc.getElementById('updated').setAttribute('aria-label',updateDescription);
     doc.getElementById('refresh').title=tx("ui_check_for_updates_now");
-    const refresh = doc.getElementById('refresh'); refresh.disabled=state.pollInFlight; refresh.classList.toggle('refreshing',state.pollInFlight);
+    const refresh = doc.getElementById('refresh'); refresh.disabled=state.pollInFlight || state.pollFailures>=4 || state.pollCompleted || terminal; refresh.classList.toggle('refreshing',state.pollInFlight);
   }
 
 
-  return {buildPipDocument,renderPip};
+  return {buildPipDocument,renderPip,fullHeight};
 };
 
 },
 function(module,exports,require){
-module.exports = ":root{color-scheme:light;font:14px/1.4 Arial,Helvetica,sans-serif;color:#3e3e3e;background:#f5f5f5;--red:#ea1d2c}\n*{box-sizing:border-box}html,body{margin:0;min-width:240px;height:100%;overflow:hidden;background:#fff}button{font:inherit;cursor:pointer}button:focus-visible,select:focus-visible{outline:2px solid var(--red);outline-offset:1px}svg{width:20px;height:20px;flex:none}[hidden]{display:none!important}\n.shell{margin:0;padding:8px;height:100dvh;background:#fff;border:0;border-radius:0;display:flex;flex-direction:column;gap:6px}\n.merchant{display:flex;align-items:center;gap:8px}.merchant>div:nth-child(2){min-width:0;flex:1}.merchant strong{display:block;max-width:235px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}\n.avatar{width:28px;height:28px;border-radius:4px;background:#f5f5f5;display:grid;place-items:center;overflow:hidden;flex:none;color:#8a8a8a}.avatar img{width:100%;height:100%;object-fit:cover}.micro{font-size:9px;color:#717171;margin-top:1px}.ifood-mark{width:25px;height:25px;color:var(--red);margin-left:5px}\n.hero{position:relative;padding-left:22px}.eta-clock{position:absolute;left:0;top:4px;color:var(--red)}.eta-clock svg{width:15px;height:15px}.eta{font-size:24px;line-height:1.1;font-weight:700;letter-spacing:-.5px;margin:0 0 3px}.eta-detail{font-size:11px;color:#717171}.eta-source{font-size:8px;line-height:1.2;color:#8d8d8d;margin-top:2px}\n.journey{padding:8px;background:#fafafa;border:1px solid #f0f0f0;border-radius:9px}.status-head{display:flex;align-items:center;gap:6px;margin-bottom:7px}.status-symbol{display:grid;place-items:center;width:22px;height:22px;border-radius:5px;background:#fff0f1;color:var(--red);flex:none}.status-symbol svg{width:15px;height:15px}.status-head h1{font-size:11px;font-weight:600;line-height:1.3;margin:0}\n.segments{display:flex;gap:4px}.segment{height:4px;border-radius:2px;background:#f2f2f2;flex:1;position:relative;overflow:hidden}.segment.done{background:#50a773}.segment.active:before{content:'';position:absolute;inset:0;border-radius:inherit;background:#50a773;transform-origin:left center;animation:stage-fill 2s linear infinite}\n.steps{display:flex;justify-content:space-between;margin-top:4px;font-size:8px;color:#a6a6a6}.steps span{flex:1;text-align:center}.steps .current{color:#3e3e3e;font-weight:700}.steps .done{color:#717171}\n.driver{display:flex;align-items:center;gap:7px}.driver .avatar{width:27px;height:27px;border-radius:50%}.driver strong{font-size:11px;font-weight:600;display:block}.vehicle{display:flex;align-items:center;gap:3px;margin-left:auto;font-size:9px;color:#717171}.vehicle svg{width:13px;height:13px}\n.code{padding:7px 0;border-top:1px solid #f2f2f2;border-bottom:1px solid #f2f2f2;display:flex;align-items:center;justify-content:space-between;gap:8px}.code-label{display:flex;gap:4px;align-items:center;font-size:10px;font-weight:600}.code-label svg{width:12px;height:12px;color:var(--red)}.code small{display:block;font-size:8px;color:#717171;margin-top:1px}.digits{display:flex;gap:4px}.digit{display:grid;place-items:center;width:22px;height:25px;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;background:#f5f5f5;border-radius:3px}\n.notice{font-size:9px;line-height:1.4;color:#9b662c;background:#fff0d9;padding:5px 6px;border-radius:3px}.footer{display:flex;align-items:center;justify-content:space-between;min-height:21px;gap:4px}.updated{font-size:7px;color:#8d8d8d}.actions{display:flex;gap:5px}.action{display:flex;align-items:center;gap:3px;padding:3px 0 3px 3px;border:0;background:none;color:var(--red);font-size:8px}.action svg{width:12px;height:12px}.action:hover{background:#fff5f5}.action:disabled{opacity:.5;cursor:wait}.refreshing svg{animation:spin 1s linear infinite}\n.cancelled .segment.done{background:#a6a6a6}.has-issue .shell{gap:3px;padding:9px}\n.late .eta,.late .eta-clock{color:#ad6400}.late .segment.active:before{background:#d59118}\n.pre-dispatch .eta{font-size:28px;letter-spacing:-.7px}.eta-source:empty{display:none}\n.footer{margin-top:auto;flex-shrink:0}.merchant strong{max-width:100%}\n.footer-meta{display:flex;align-items:center;gap:4px;min-width:0}.language{width:38px;flex:none;border:0;border-radius:3px;padding:2px 0;background:transparent;color:#717171;font:9px Arial,sans-serif;cursor:pointer}.language:hover{background:#f5f5f5}.language option{color:#3e3e3e;background:white}.updated{min-width:0}\n@keyframes stage-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}@keyframes spin{to{transform:rotate(360deg)}}\n@media(prefers-reduced-motion:reduce){*,*:before{animation:none!important;transition:none!important}}\n@media(max-height:320px){.shell{padding:8px;gap:6px}.has-issue .shell{padding:8px;gap:3px}}\n@media(max-height:280px){.shell{padding:8px;gap:5px}.eta{font-size:23px}.eta-detail{font-size:10px;line-height:1.2}.eta-source{font-size:7px}.merchant .avatar,.driver .avatar{height:24px;width:24px}.merchant strong,.driver strong,.micro{line-height:1.2}.code{padding:5px 0}.code-label{line-height:1.1}.code small{line-height:1.15}.digit{height:23px}.journey{padding:6px}.status-head{margin-bottom:5px}.footer{min-height:18px}}\n@media(max-width:300px){.shell{padding:8px;gap:6px}.eta{font-size:22px}.updated{max-width:105px;font-size:7px}.action{font-size:8px}.merchant strong{max-width:185px}.digit{width:20px}}\n\n/* Shared controls and resilience when the browser refuses a resize. */\n:root{--muted:#717171;--surface:#fff}\n.shell{position:relative}.merchant{padding-right:27px}.merchant strong{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}\n.mode-toggle{position:absolute;right:8px;top:8px;width:28px;height:28px;border:0;border-radius:5px;background:transparent;color:var(--muted);display:grid;place-items:center;padding:5px}\n.mode-toggle svg{width:17px;height:17px}.mode-toggle:hover{background:#f5f5f5;color:#3e3e3e}\n.driver>div{min-width:0}.driver strong{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.code{flex-wrap:wrap}\n.updated{overflow-wrap:anywhere}.language{min-height:24px}.action{min-height:24px}\n\n.step-icon{display:none}\n\n/* Compact composition: identity / status + arrival / timeline / utilities.\n   The journey's children join this grid; no nested panel or global card. */\n[data-mode=\"compact\"] .shell{padding:8px;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 128px;grid-template-rows:28px minmax(38px,1fr) 4px 16px 22px;gap:5px 10px}\n[data-mode=\"compact\"] .merchant{grid-area:1/1/2/3;gap:7px;min-height:0;padding-right:28px}\n[data-mode=\"compact\"] .merchant>div:nth-child(2){overflow:hidden}\n[data-mode=\"compact\"] .merchant strong{font-size:12px;line-height:16px;font-weight:600}\n[data-mode=\"compact\"] .avatar{width:27px;height:27px;border-radius:5px}\n[data-mode=\"compact\"] #order-number{font-size:9px;line-height:11px;margin:0}\n[data-mode=\"compact\"] .ifood-mark{display:block;width:23px;height:23px;margin:0 2px 0 0}\n[data-mode=\"compact\"] .mode-toggle{right:4px;top:7px;width:26px;height:26px}\n[data-mode=\"compact\"] .journey{display:contents}\n[data-mode=\"compact\"] .status-head{grid-area:2/1;gap:7px;margin:0;align-self:center;min-width:0}\n[data-mode=\"compact\"] .status-head>div:last-child{min-width:0}\n[data-mode=\"compact\"] .status-head h1{font-size:12px;line-height:16px;font-weight:600;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}\n[data-mode=\"compact\"] .status-symbol{width:27px;height:27px;border-radius:6px;background:#fff0f1}\n[data-mode=\"compact\"] .status-symbol svg{width:18px;height:18px}\n[data-mode=\"compact\"]:not(.compact-has-eta) .status-head{grid-column:1/-1}\n[data-mode=\"compact\"] .hero{grid-area:2/2;align-self:center;min-width:0;padding:0;text-align:right}\n[data-mode=\"compact\"]:not(.compact-has-eta) .hero,[data-mode=\"compact\"].compact-show-code .hero{display:none}\n[data-mode=\"compact\"] .eta-clock,[data-mode=\"compact\"] .eta-source,[data-mode=\"compact\"] .driver{display:none}\n[data-mode=\"compact\"].compact-has-driver .status-head{align-self:start}\n[data-mode=\"compact\"].compact-has-driver .status-head h1{-webkit-line-clamp:2;line-height:15px}\n[data-mode=\"compact\"].compact-has-driver .driver{display:flex;grid-area:2/1;align-self:end;gap:5px;min-width:0}\n[data-mode=\"compact\"] .driver .avatar{width:18px;height:18px}\n[data-mode=\"compact\"] .driver .avatar svg{width:15px;height:15px}\n[data-mode=\"compact\"] .driver strong{font-size:10px;line-height:15px;font-weight:400;color:#717171}\n[data-mode=\"compact\"] .driver .micro,[data-mode=\"compact\"] .vehicle{display:none}\n[data-mode=\"compact\"] .eta{font-size:23px;line-height:27px;letter-spacing:-.6px;margin:0;font-variant-numeric:tabular-nums;white-space:nowrap}\n[data-mode=\"compact\"].pre-dispatch .eta{font-size:17px;line-height:23px;letter-spacing:-.3px}\n[data-mode=\"compact\"] .eta-detail{font-size:10px;line-height:14px;margin:0;color:#717171;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}\n[data-mode=\"compact\"] .segments{grid-area:3/1/4/3;gap:5px}\n[data-mode=\"compact\"] .segment{height:4px}\n[data-mode=\"compact\"] .steps{grid-area:4/1/5/3;margin:0;font-size:9px;line-height:16px;color:#767676}\n[data-mode=\"compact\"] .step{display:flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap}\n[data-mode=\"compact\"] .step>span{flex:none}\n[data-mode=\"compact\"] .step-icon{display:inline-flex;color:inherit}\n[data-mode=\"compact\"] .step-icon svg{width:11px;height:11px}\n[data-mode=\"compact\"] .steps .current{color:#3e3e3e}\n[data-mode=\"compact\"] .steps .done{color:#3e8459}\n[data-mode=\"compact\"] .code{display:none}\n[data-mode=\"compact\"].compact-show-code .code{grid-area:2/2;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0;border:0;gap:3px}\n[data-mode=\"compact\"] .code-label{font-size:9px;color:#717171;font-weight:400;gap:4px}\n[data-mode=\"compact\"] .code small{display:none}\n[data-mode=\"compact\"] .digits{gap:3px}\n[data-mode=\"compact\"] .digit{width:18px;height:23px;font-size:16px;background:#f5f5f5}\n[data-mode=\"compact\"] .notice{display:none}\n[data-mode=\"compact\"] .footer{grid-area:5/1/6/3;margin:0;min-height:22px;gap:6px}\n[data-mode=\"compact\"] .footer-meta{min-width:0;overflow:hidden;gap:3px}\n[data-mode=\"compact\"] .updated{font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n[data-mode=\"compact\"] .actions{gap:7px;flex:none}\n[data-mode=\"compact\"] .action{font-size:9px;min-height:22px}\n[data-mode=\"compact\"] .action svg{width:12px;height:12px}\n[data-mode=\"compact\"] .language{font-size:9px;min-height:22px;width:32px}\n[data-mode=\"compact\"].has-issue .updated{color:#9b662c;font-weight:600}\n[data-mode=\"compact\"].has-issue .updated:before{content:'!';display:inline-grid;place-items:center;width:10px;height:10px;border:1px solid currentColor;border-radius:50%;margin-right:3px;font-size:8px}\n";
-},
-function(module,exports,require){
-const {cleanStore,safeImage,finiteDistance,readPageStatus} = require(1);
-module.exports = function createPageReader(state) {
-  function readOptionalPageInfo() {
-    // Identidade, previsão e status visível complementam os eventos HTTP.
-    const lines = (document.body?.innerText || '').split(/\n+/)
-      .map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
-    const etaIndex = lines.findIndex(s => /previs[aã]o de entrega/i.test(s));
-    const etaLine = etaIndex >= 0 ? lines.slice(etaIndex, etaIndex + 5).join(' ') : '';
-    const etaMatch = etaLine.match(/(?:Hoje|Amanh[aã]|\w+-feira)?,?\s*\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}/i);
-    const merchantNode = document.querySelector('[data-testid="merchant-name"], [data-testid="restaurant-name"], .merchant-info__name, .order-details__merchant-name, .order-details-header__merchant-name');
-    const merchantLink = [...document.querySelectorAll('a[href*="/delivery/"], a[href*="/restaurantes/"]')]
-      .find(a => cleanStore(a.textContent) && !/ver|voltar|início|restaurantes/i.test(a.textContent));
-    // The live iFood page uses generated class names. Anchor the identity to
-    // the order-number label: its preceding sibling is the merchant name.
-    const orderNumberNode = [...document.querySelectorAll('span,p,small,strong')]
-      .find(el => !el.children.length && /^Pedido\s*(?:N\s*[º°o.]?|#)\s*\d+$/i.test(el.textContent.trim()));
-    const orderHeader = orderNumberNode?.parentElement?.parentElement;
-    const identityName = orderNumberNode?.previousElementSibling?.textContent || '';
-    const store = cleanStore(merchantNode?.textContent || '') || cleanStore(identityName) || state.orderDetails.store || cleanStore(merchantLink?.textContent || '');
-    const merchantImage = document.querySelector('[data-testid="merchant-logo"], [data-testid="restaurant-logo"], .merchant-info img, .order-details__merchant img');
-    // An exact alt/name match is safer than taking the first image (often the driver).
-    const image = merchantImage || (store ? [...document.querySelectorAll('img[alt], [role="img"][alt]')]
-      .find(img => img.getAttribute('alt')?.trim() === store) : null) ||
-      orderHeader?.querySelector('img, [role="img"][src]');
-    const storePhoto = safeImage(image?.currentSrc || image?.src || image?.getAttribute('src')) || state.orderDetails.storePhoto || '';
-    const number = lines.join(' ').match(/Pedido\s*(?:N\s*[º°o.]?|#)\s*(\d{2,})/i)?.[1] || '';
-    const codeText = lines.join(' ').match(/c[oó]digo (?:de|da) entrega\s*[:–-]?\s*(\d{4,6})\b/i)?.[1] || '';
-    const routeNode = document.querySelector('[data-route-distance-meters], [data-testid="delivery-distance"], [data-testid="route-distance"]');
-    const routeAttr = routeNode?.getAttribute('data-route-distance-meters');
-    const routeText = routeNode?.textContent?.match(/(\d+(?:[.,]\d+)?)\s*(km|m)\b/i);
-    const routeDistanceMeters = finiteDistance(routeAttr ? Number(routeAttr) : routeText ? Number(routeText[1].replace(',','.')) * (routeText[2].toLowerCase()==='km' ? 1000 : 1) : null);
-    return { store, storePhoto, number, code: codeText, routeDistanceMeters, pageStatus: readPageStatus(lines.join('\n')), eta: etaMatch ? etaMatch[0].replace(/\s*[-—]\s*/g, ' – ') : '' };
-  }
-
-
-  return readOptionalPageInfo;
+// Data being present in an early API/DOM payload is not permission to show it.
+module.exports = function visibility(data) {
+  const orderKnown=['received','preparing','driver','atStore','shipping','arriving','delivered','cancelled'].includes(data.stage);
+  const terminal=['delivered','cancelled'].includes(data.stage);
+  return {
+    order:orderKnown,
+    courier:orderKnown && (Boolean(data.driverPhase) || ['shipping','arriving','delivered'].includes(data.stage)),
+    deliveryCode:['shipping','arriving'].includes(data.stage) && !data.codeValidated && !terminal,
+    routeEstimate:data.stage==='shipping',
+    merchantWindow:orderKnown && !['shipping','arriving','delivered','cancelled'].includes(data.stage)
+  };
 };
 
+},
+function(module,exports,require){
+module.exports = ":root{color-scheme:light;font:14px/1.4 Arial,Helvetica,sans-serif;color:#3e3e3e;background:#f5f5f5;--red:#ea1d2c}\n*{box-sizing:border-box}html,body{margin:0;min-width:240px;height:100%;overflow:hidden;background:#fff}button{font:inherit;cursor:pointer}button:focus-visible,select:focus-visible{outline:2px solid var(--red);outline-offset:1px}svg{width:20px;height:20px;flex:none}[hidden]{display:none!important}\n.shell{margin:0;padding:8px;height:100dvh;background:#fff;border:0;border-radius:0;display:flex;flex-direction:column;gap:6px}\n.merchant{display:flex;align-items:center;gap:8px}.merchant>div:nth-child(2){min-width:0;flex:1}.merchant strong{display:block;max-width:235px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}\n.avatar{width:28px;height:28px;border-radius:4px;background:#f5f5f5;display:grid;place-items:center;overflow:hidden;flex:none;color:#8a8a8a}.avatar img{width:100%;height:100%;object-fit:cover}.micro{font-size:9px;color:#717171;margin-top:1px}.ifood-mark{width:25px;height:25px;color:var(--red);margin-left:5px}\n.hero{position:relative;padding-left:22px}.eta-clock{position:absolute;left:0;top:4px;color:var(--red)}.eta-clock svg{width:15px;height:15px}.eta{font-size:24px;line-height:1.1;font-weight:700;letter-spacing:-.5px;margin:0 0 3px}.eta-detail{font-size:11px;color:#717171}.eta-source{font-size:8px;line-height:1.2;color:#8d8d8d;margin-top:2px}\n.journey{padding:8px;background:#fafafa;border:1px solid #f0f0f0;border-radius:9px}.status-head{display:flex;align-items:center;gap:6px;margin-bottom:7px}.status-symbol{display:grid;place-items:center;width:22px;height:22px;border-radius:5px;background:#fff0f1;color:var(--red);flex:none}.status-symbol svg{width:15px;height:15px}.status-head h1{font-size:11px;font-weight:600;line-height:1.3;margin:0}\n.segments{display:flex;gap:4px}.segment{height:4px;border-radius:2px;background:#f2f2f2;flex:1;position:relative;overflow:hidden}.segment.done{background:#50a773}.segment.active:before{content:'';position:absolute;inset:0;border-radius:inherit;background:#50a773;transform-origin:left center;animation:stage-fill 2s linear infinite}\n.steps{display:flex;justify-content:space-between;margin-top:4px;font-size:8px;color:#a6a6a6}.steps span{flex:1;text-align:center}.steps .current{color:#3e3e3e;font-weight:700}.steps .done{color:#717171}\n.driver{display:flex;align-items:center;gap:7px}.driver .avatar{width:27px;height:27px;border-radius:50%}.driver strong{font-size:11px;font-weight:600;display:block}.vehicle{display:flex;align-items:center;gap:3px;margin-left:auto;font-size:9px;color:#717171}.vehicle svg{width:13px;height:13px}\n.code{padding:7px 0;border-top:1px solid #f2f2f2;border-bottom:1px solid #f2f2f2;display:flex;align-items:center;justify-content:space-between;gap:8px}.code-label{display:flex;gap:4px;align-items:center;font-size:10px;font-weight:600}.code-label svg{width:12px;height:12px;color:var(--red)}.code small{display:block;font-size:8px;color:#717171;margin-top:1px}.digits{display:flex;gap:4px}.digit{display:grid;place-items:center;width:22px;height:25px;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;background:#f5f5f5;border-radius:3px}\n.notice{font-size:9px;line-height:1.4;color:#9b662c;background:#fff0d9;padding:5px 6px;border-radius:3px}.footer{display:flex;align-items:center;justify-content:space-between;min-height:21px;gap:4px}.updated{font-size:7px;color:#8d8d8d}.actions{display:flex;gap:5px}.action{display:flex;align-items:center;gap:3px;padding:3px 0 3px 3px;border:0;background:none;color:var(--red);font-size:8px}.action svg{width:12px;height:12px}.action:hover{background:#fff5f5}.action:disabled{opacity:.5;cursor:wait}.refreshing svg{animation:spin 1s linear infinite}\n.cancelled .segment.done{background:#a6a6a6}.has-issue .shell{gap:3px;padding:9px}\n.late .eta,.late .eta-clock{color:#ad6400}.late .segment.active:before{background:#d59118}\n.pre-dispatch .eta{font-size:28px;letter-spacing:-.7px}.eta-source:empty{display:none}\n.footer{margin-top:0;flex-shrink:0}.merchant strong{max-width:100%}\n.footer-meta{display:flex;align-items:center;gap:4px;min-width:0}.language{width:38px;flex:none;border:0;border-radius:3px;padding:2px 0;background:transparent;color:#717171;font:9px Arial,sans-serif;cursor:pointer}.language:hover{background:#f5f5f5}.language option{color:#3e3e3e;background:white}.updated{min-width:0}\n@keyframes stage-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}@keyframes spin{to{transform:rotate(360deg)}}\n@media(prefers-reduced-motion:reduce){*,*:before{animation:none!important;transition:none!important}}\n@media(max-height:320px){.shell{padding:8px;gap:6px}.has-issue .shell{padding:8px;gap:3px}}\n@media(max-height:280px){.shell{padding:8px;gap:5px}.eta{font-size:23px}.eta-detail{font-size:10px;line-height:1.2}.eta-source{font-size:7px}.merchant .avatar,.driver .avatar{height:24px;width:24px}.merchant strong,.driver strong,.micro{line-height:1.2}.code{padding:5px 0}.code-label{line-height:1.1}.code small{line-height:1.15}.digit{height:23px}.journey{padding:6px}.status-head{margin-bottom:5px}.footer{min-height:18px}}\n@media(max-width:300px){.shell{padding:8px;gap:6px}.eta{font-size:22px}.updated{max-width:105px;font-size:7px}.action{font-size:8px}.merchant strong{max-width:185px}.digit{width:20px}}\n\n/* Shared controls and resilience when the browser refuses a resize. */\n:root{--muted:#717171;--surface:#fff}\n.shell{position:relative}.merchant{padding-right:27px}.merchant strong{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}\n.mode-toggle{position:absolute;right:8px;top:8px;width:28px;height:28px;border:0;border-radius:5px;background:transparent;color:var(--muted);display:grid;place-items:center;padding:5px}\n.mode-toggle svg{width:17px;height:17px}.mode-toggle:hover{background:#f5f5f5;color:#3e3e3e}\n.driver>div{min-width:0}.driver strong{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.code{flex-wrap:wrap}\n.updated{overflow-wrap:anywhere}.language{min-height:24px}.action{min-height:24px}\n\n.step-icon{display:none}\n\n/* Compact composition: identity / status + arrival / timeline / utilities.\n   The journey's children join this grid; no nested panel or global card. */\n[data-mode=\"compact\"] .shell{padding:8px;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 128px;grid-template-rows:28px minmax(38px,1fr) 4px 16px 22px;gap:5px 10px}\n[data-mode=\"compact\"] .merchant{grid-area:1/1/2/3;gap:7px;min-height:0;padding-right:28px}\n[data-mode=\"compact\"] .merchant>div:nth-child(2){overflow:hidden}\n[data-mode=\"compact\"] .merchant strong{font-size:12px;line-height:16px;font-weight:600}\n[data-mode=\"compact\"] .avatar{width:27px;height:27px;border-radius:5px}\n[data-mode=\"compact\"] #order-number{font-size:9px;line-height:11px;margin:0}\n[data-mode=\"compact\"] .ifood-mark{display:block;width:23px;height:23px;margin:0 2px 0 0}\n[data-mode=\"compact\"] .mode-toggle{right:4px;top:7px;width:26px;height:26px}\n[data-mode=\"compact\"] .journey{display:contents}\n[data-mode=\"compact\"] .status-head{grid-area:2/1;gap:7px;margin:0;align-self:center;min-width:0}\n[data-mode=\"compact\"] .status-head>div:last-child{min-width:0}\n[data-mode=\"compact\"] .status-head h1{font-size:12px;line-height:16px;font-weight:600;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}\n[data-mode=\"compact\"] .status-symbol{width:27px;height:27px;border-radius:6px;background:#fff0f1}\n[data-mode=\"compact\"] .status-symbol svg{width:18px;height:18px}\n[data-mode=\"compact\"]:not(.compact-has-eta) .status-head{grid-column:1/-1}\n[data-mode=\"compact\"] .hero{grid-area:2/2;align-self:center;min-width:0;padding:0;text-align:right}\n[data-mode=\"compact\"]:not(.compact-has-eta) .hero,[data-mode=\"compact\"].compact-show-code .hero{display:none}\n[data-mode=\"compact\"] .eta-clock,[data-mode=\"compact\"] .eta-source,[data-mode=\"compact\"] .driver{display:none}\n[data-mode=\"compact\"].compact-has-driver .status-head{align-self:start}\n[data-mode=\"compact\"].compact-has-driver .status-head h1{-webkit-line-clamp:2;line-height:15px}\n[data-mode=\"compact\"].compact-has-driver .driver{display:flex;grid-area:2/1;align-self:end;gap:5px;min-width:0}\n[data-mode=\"compact\"] .driver .avatar{width:18px;height:18px}\n[data-mode=\"compact\"] .driver .avatar svg{width:15px;height:15px}\n[data-mode=\"compact\"] .driver strong{font-size:10px;line-height:15px;font-weight:400;color:#717171}\n[data-mode=\"compact\"] .driver .micro,[data-mode=\"compact\"] .vehicle{display:none}\n[data-mode=\"compact\"] .eta{font-size:23px;line-height:27px;letter-spacing:-.6px;margin:0;font-variant-numeric:tabular-nums;white-space:nowrap}\n[data-mode=\"compact\"].pre-dispatch .eta{font-size:17px;line-height:23px;letter-spacing:-.3px}\n[data-mode=\"compact\"] .eta-detail{font-size:10px;line-height:14px;margin:0;color:#717171;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}\n[data-mode=\"compact\"] .segments{grid-area:3/1/4/3;gap:5px}\n[data-mode=\"compact\"] .segment{height:4px}\n[data-mode=\"compact\"] .steps{grid-area:4/1/5/3;margin:0;font-size:9px;line-height:16px;color:#767676}\n[data-mode=\"compact\"] .step{display:flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap}\n[data-mode=\"compact\"] .step>span{flex:none}\n[data-mode=\"compact\"] .step-icon{display:inline-flex;color:inherit}\n[data-mode=\"compact\"] .step-icon svg{width:11px;height:11px}\n[data-mode=\"compact\"] .steps .current{color:#3e3e3e}\n[data-mode=\"compact\"] .steps .done{color:#3e8459}\n[data-mode=\"compact\"] .code{display:none}\n[data-mode=\"compact\"].compact-show-code .code{grid-area:2/2;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0;border:0;gap:3px}\n[data-mode=\"compact\"] .code-label{font-size:9px;color:#717171;font-weight:400;gap:4px}\n[data-mode=\"compact\"] .code small{display:none}\n[data-mode=\"compact\"] .digits{gap:3px}\n[data-mode=\"compact\"] .digit{width:18px;height:23px;font-size:16px;background:#f5f5f5}\n[data-mode=\"compact\"] .notice{display:none}\n[data-mode=\"compact\"] .footer{grid-area:5/1/6/3;margin:0;min-height:22px;gap:6px}\n[data-mode=\"compact\"] .footer-meta{min-width:0;overflow:hidden;gap:3px}\n[data-mode=\"compact\"] .updated{font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n[data-mode=\"compact\"] .actions{gap:7px;flex:none}\n[data-mode=\"compact\"] .action{font-size:9px;min-height:22px}\n[data-mode=\"compact\"] .action svg{width:12px;height:12px}\n[data-mode=\"compact\"] .language{font-size:9px;min-height:22px;width:32px}\n[data-mode=\"compact\"].has-issue .updated{color:#9b662c;font-weight:600}\n[data-mode=\"compact\"].has-issue .updated:before{content:'!';display:inline-grid;place-items:center;width:10px;height:10px;border:1px solid currentColor;border-radius:50%;margin-right:3px;font-size:8px}\n\n/* A sparse order opens at its actual content size. If more details arrive\n   without a resize gesture, share a row instead of clipping or adding scroll. */\n@media(max-height:240px){\n  [data-mode=\"full\"] .shell{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:min-content;align-content:start;padding:6px;gap:4px 8px}\n  [data-mode=\"full\"] .merchant{grid-area:1/1/2/3}\n  [data-mode=\"full\"] .hero{grid-area:2/1/3/3;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 7px;padding-left:20px}\n  [data-mode=\"full\"] .eta{font-size:23px;line-height:25px;margin:0}\n  [data-mode=\"full\"] .eta-detail{font-size:9px;line-height:12px}\n  [data-mode=\"full\"] .eta-source{width:100%;margin:0;font-size:7px;line-height:9px}\n  [data-mode=\"full\"] .journey{grid-area:3/1/4/3;padding:5px 6px}\n  [data-mode=\"full\"] .status-head{margin-bottom:4px}\n  [data-mode=\"full\"] .steps{margin-top:3px}\n  [data-mode=\"full\"] .driver{grid-area:4/1;align-self:center;min-width:0;gap:5px}\n  [data-mode=\"full\"] .driver .avatar{width:23px;height:23px}\n  [data-mode=\"full\"] .driver .vehicle{display:none}\n  [data-mode=\"full\"] .driver .micro{font-size:8px;line-height:10px}\n  [data-mode=\"full\"] .code{grid-area:4/2;border:0;padding:0;flex-direction:column;gap:2px;align-items:flex-end}\n  [data-mode=\"full\"] .code-label{font-size:8px;line-height:10px}\n  [data-mode=\"full\"] .code small{display:none}\n  [data-mode=\"full\"] .digit{height:20px;width:18px;font-size:14px}\n  [data-mode=\"full\"] .notice{grid-area:5/1/6/3;font-size:8px;line-height:10px;padding:3px 5px}\n  [data-mode=\"full\"] .footer{grid-area:6/1/7/3;min-height:20px}\n  [data-mode=\"full\"] .language,[data-mode=\"full\"] .action{min-height:20px}\n  [data-mode=\"full\"].has-issue .shell{gap:2px 8px}\n}\n@media(max-height:190px){\n  [data-mode=\"full\"] .shell{padding:5px 6px;gap:1px 7px}\n  [data-mode=\"full\"] .eta-source{display:none}\n  [data-mode=\"full\"] .notice{display:none}\n  [data-mode=\"full\"].has-issue .updated{color:#9b662c;font-weight:600}\n}\n\n/* Expanded mode adds factual order history, the promised window and route\n   details. Rows only exist after their corresponding events are received. */\n[data-mode=\"full\"] .shell{display:flex;flex-direction:column;padding:8px;gap:5px}\n[data-mode=\"full\"] .hero{display:block;padding-left:22px}\n[data-mode=\"full\"] .eta{font-size:24px;line-height:27px;margin:0 0 3px}\n[data-mode=\"full\"] .eta-detail{font-size:10px;line-height:13px}\n[data-mode=\"full\"] .eta-source{display:block;font-size:8px;line-height:10px}\n[data-mode=\"full\"] .eta-source:empty{display:none}\n[data-mode=\"full\"] .journey{padding:7px}\n[data-mode=\"full\"] .merchant .avatar{height:28px;width:28px}\n[data-mode=\"full\"] .status-head{margin-bottom:6px}\n[data-mode=\"full\"] .steps{margin-top:4px;line-height:12px}\n[data-mode=\"full\"] .footer,[data-mode=\"full\"] .language,[data-mode=\"full\"] .action{min-height:24px}\n[data-mode=\"full\"] .driver{display:flex;min-height:28px}\n[data-mode=\"full\"] .driver .vehicle{display:flex}\n[data-mode=\"full\"] .code{display:flex;flex-direction:row;align-items:center;border-top:1px solid #eee;border-bottom:1px solid #eee;padding:5px 0;gap:8px}\n[data-mode=\"full\"] .code small{display:block}\n[data-mode=\"full\"] .digit{width:22px;height:25px;font-size:16px}\n.order-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 12px;margin:0;border-top:1px solid #eee;padding:7px 0 0}\n.order-details>div{min-width:0}.order-details dt{font-size:9px;line-height:12px;color:#717171}.order-details dd{margin:0;font-size:11px;line-height:14px;font-weight:600;font-variant-numeric:tabular-nums}\n[data-mode=\"full\"] .notice{display:block;font-size:9px;line-height:12px;padding:4px 6px}\n[data-mode=\"compact\"] .order-details{display:none}\n\n/* Keep arrival and delivery code together in the existing right-hand rail. */\n[data-mode=\"compact\"].compact-show-code .hero{display:block;align-self:start}\n[data-mode=\"compact\"].compact-show-code:not(.compact-estimate) .hero{display:none}\n[data-mode=\"compact\"].compact-show-code:not(.compact-estimate) .code{align-self:center}\n[data-mode=\"compact\"].compact-show-code .eta{font-size:21px;line-height:25px}\n[data-mode=\"compact\"].compact-show-code .eta-detail{display:none}\n[data-mode=\"compact\"].compact-show-code .code{align-self:end;flex-direction:row;gap:5px;justify-content:flex-end}\n[data-mode=\"compact\"].compact-show-code .code-label>span{display:none}\n[data-mode=\"compact\"].compact-show-code .code-label svg{width:12px;height:12px}\n[data-mode=\"compact\"].compact-show-code .digits{gap:2px}\n[data-mode=\"compact\"].compact-show-code .digit{width:17px;height:20px;font-size:14px}\n[data-mode=\"compact\"].compact-show-code .code{min-width:0}\n[data-mode=\"compact\"].has-issue .shell{padding:6px 8px;gap:3px 10px;grid-template-rows:28px minmax(46px,1fr) 4px 14px 22px 20px}\n[data-mode=\"compact\"].has-issue .steps{line-height:14px}\n[data-mode=\"compact\"].has-issue .notice{display:block;grid-area:5/1/6/3;font-size:9px;line-height:11px;padding:0 3px;background:#fff8ed;color:#866033;align-self:center}\n[data-mode=\"compact\"].has-issue .footer{grid-row:6;min-height:20px}\n[data-mode=\"compact\"].has-issue .action,[data-mode=\"compact\"].has-issue .language{min-height:20px}\n\n/* A denied resize still exposes the compact summary and controls. */\n  [data-mode=\"full\"].constrained .shell{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:min-content;align-content:start;padding:6px;gap:3px 8px}\n  [data-mode=\"full\"].constrained .merchant{grid-area:1/1/2/3}\n  [data-mode=\"full\"].constrained .hero{grid-area:2/1/3/3;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 7px;padding-left:20px}\n  [data-mode=\"full\"].constrained .eta{font-size:23px;line-height:25px;margin:0}\n  [data-mode=\"full\"].constrained .eta-detail{font-size:9px;line-height:12px}\n  [data-mode=\"full\"].constrained .eta-source{display:none}\n  [data-mode=\"full\"].constrained .journey{grid-area:3/1/4/3;padding:5px 6px}\n  [data-mode=\"full\"].constrained .status-head{margin-bottom:4px}\n  [data-mode=\"full\"].constrained .driver{grid-area:4/1;min-height:28px;min-width:0}\n  [data-mode=\"full\"].constrained .driver .vehicle{display:none}\n  [data-mode=\"full\"].constrained .code{grid-area:4/2;border:0;padding:0;flex-direction:column;gap:2px;align-items:flex-end}\n  [data-mode=\"full\"].constrained .code small{display:none}\n  [data-mode=\"full\"].constrained .digit{height:20px;width:18px;font-size:14px}\n  [data-mode=\"full\"].constrained .order-details{grid-area:5/1/6/3;padding-top:4px;gap:3px 10px}\n  [data-mode=\"full\"].constrained .order-details>div:nth-child(n+3){display:none}\n  [data-mode=\"full\"].constrained .notice{grid-area:6/1/7/3}\n  [data-mode=\"full\"].constrained .footer{grid-area:7/1/8/3}\n@media(max-height:210px){\n  [data-mode=\"full\"] .order-details{display:none}\n}\n";
 },
 function(module,exports,require){
 const {message} = require(3);
 const {finiteDistance,geographicRouteMeters} = require(1);
 module.exports = function createArrival(state,format,t) {
   function estimateArrival(data, extras, now = Date.now()) {
-    if (data.stage === 'delivered') return { title: "ui_enjoy_your_meal", detail: "ui_your_order_has_been_delivered", source: "ui_completed" };
+    if (['loading','unknown'].includes(data.stage)) return {title:'ui_checking_order_updates',detail:'',source:''};
+    if (data.stage === 'delivered') return { title: "ui_order_completed", detail: "ui_your_order_has_been_delivered", source: "ui_completed" };
     if (data.stage === 'cancelled') return { title: "ui_order_canceled", detail: "ui_see_details_on_the_order_page", source: "ui_closed" };
     if (data.stage === 'arriving') return { title: "ui_your_courier_is_here", detail: "ui_get_ready_to_receive_your_order", source: "ui_courier_at_your_address" };
     if (data.stage === 'shipping') return routeArrival(data,extras,now);
@@ -906,7 +981,7 @@ module.exports = function createLauncher({state,HOST_ID,tx,openOrClosePip}) {
     state.host.style.cssText = 'position:fixed;right:22px;bottom:22px;z-index:2147483647;';
     const shadow = state.host.attachShadow({ mode:'open' });
     const style = document.createElement('style');
-    style.textContent = require(15);
+    style.textContent = require(16);
     shadow.append(style);
     const widget = document.createElement('div');
     widget.className = 'widget';

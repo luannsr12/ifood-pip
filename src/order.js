@@ -29,10 +29,10 @@ const MILESTONES = Object.freeze({
 });
 
 function blankSnapshot() {
-  return { stage: 'loading', label: "ui_checking_order_updates",
+  return { stage: 'loading', label: "ui_checking_order_updates", confirmed:false,
     driver: '', driverPhoto: '', driverLabel: '', modal: '', code: '', codeValidated: false,
     etaAt: 0, departedAt: 0, routeDistanceMeters: null, origin: null, destination: null,
-    eventTime: '', checkedAt: '', issue: '' };
+    eventTime: '', checkedAt: '', issue: '', timeline:{} };
 }
 
 function safeImage(value) {
@@ -108,7 +108,7 @@ function readPageStatus(text) {
   // Explicit current-status phrases only. "Logo sairá" must never mean dispatched.
   const statuses = [
     ['cancelled', /(?:Seu |O )?pedido (?:foi |est[aá] )?cancelado/i],
-    ['delivered', /(?:Seu |O )?pedido (?:foi )?entregue/i],
+    ['delivered', /(?:Seu |O )?pedido (?:(?:foi )?entregue|(?:foi )?conclu[ií]do)/i],
     ['arriving', /(?:O )?entregador chegou (?:ao seu endere[çc]o|ao destino)/i],
     ['shipping', /(?:Seu |O )?pedido (?:saiu para entrega|est[aá] a caminho)/i],
     ['preparing', /(?:O |Seu )?pedido (?:est[aá] sendo preparado(?: e logo sair[aá] para entrega)?|est[aá] em prepara[çc][aã]o|em preparo)/i]
@@ -134,6 +134,7 @@ function summarizeEvents(json, id) {
   let modal = '';
   let driverPhoto = '', code = '', codeValidated = false, etaAt = 0, driverPhase = '', driverLabel = '', driverRank = 0;
   let routeDistanceMeters = null, origin = null, destination = null, departedAt = 0;
+  const timeline = {};
   const events = json.filter(item => item?.orderId === id).slice().sort((a,b) =>
     (Date.parse(a.timestamp || a.processedAt || '') || 0) - (Date.parse(b.timestamp || b.processedAt || '') || 0));
   for (let index = 0; index < events.length; index++) {
@@ -160,6 +161,8 @@ function summarizeEvents(json, id) {
     if (mapping && mapping.rank >= driverRank && /^(ASSIGN_DRIVER|DELIVERY_ACCEPTED|(?:DELIVERY_)?(?:GOING_TO_ORIGIN|ARRIVED_AT_ORIGIN|COLLECTED|GOING_TO_DESTINATION|ARRIVED_AT_DESTINATION)|DISPATCHED)$/.test(value)) { driverPhase = mapping.stage; driverLabel = mapping.label; driverRank = mapping.rank; }
     if (!mapping) continue; // Ignora NUPAY, CHAT, HANDSHAKE_CODE, outros metadados internos.
     const timestamp = Date.parse(item.timestamp || item.processedAt || '') || 0;
+    const moment = ({CREATED:'created',PLACED:'created',CONFIRMED:'confirmed',PREPARATION_STARTED:'preparing',SEPARATION_STARTED:'preparing',DISPATCHED:'departed',GOING_TO_DESTINATION:'departed',DELIVERY_GOING_TO_DESTINATION:'departed',ARRIVED_AT_DESTINATION:'arrived',DELIVERY_ARRIVED_AT_DESTINATION:'arrived',ARRIVED:'arrived',DELIVERED:'completed',CONCLUDED:'completed',COMPLETED:'completed',DELIVERY_COMPLETED:'completed'})[value];
+    if (moment && timestamp && !timeline[moment]) timeline[moment] = timestamp;
     if (timestamp > 0 && /^(DISPATCHED|(?:DELIVERY_)?GOING_TO_DESTINATION)$/.test(value)) departedAt = departedAt ? Math.min(departedAt,timestamp) : timestamp;
     const candidate = { ...mapping, time: timestamp, index };
     // Nunca regride para uma etapa anterior por causa de eventos auxiliares/tardios.
@@ -173,8 +176,9 @@ function summarizeEvents(json, id) {
   const waitingForDriver = best?.stage === 'atStore' && driverPhase === 'driver';
   return {
     stage: waitingForDriver ? 'driver' : best?.stage || 'unknown',
+    confirmed:Boolean(best && best.rank>=3),
     label: waitingForDriver ? "ui_order_ready_courier_heading_to_the_store" : best?.label || "ui_waiting_for_an_order_update",
-    driver: name, driverPhase, driverLabel, driverPhoto, modal, code, codeValidated, etaAt, departedAt, routeDistanceMeters, origin, destination, eventTime,
+    driver: name, driverPhase, driverLabel, driverPhoto, modal, code, codeValidated, etaAt, departedAt, routeDistanceMeters, origin, destination, eventTime, timeline,
     checkedAt: Date.now(),
     issue: ''
   };

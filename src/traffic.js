@@ -33,20 +33,25 @@ module.exports = function createTraffic(context) {
     function recordEvents(json, orderId, fromPage = true) {
       try {
         const summary = summarizeEvents(json, orderId);
-        if (orderId !== getOrderId()) return;
+        if (orderId !== getOrderId()) return false;
         state.capturedSummary = { orderId, summary };
-        if (fromPage) state.lastPageUpdateAt = Date.now();
+        if (fromPage) {
+          state.lastPageUpdateAt = Date.now();
+          state.pollFailures = 0;
+        }
         if (state.pip && !state.pip.closed && state.activeOrderId === orderId) {
           state.snapshot = summary;
           renderPip();
           if (fromPage) queueNextPoll();
         }
+        return true;
       } catch (error) {
         // Respostas inesperadas não afetam o funcionamento normal do site.
         if (state.pip && !state.pip.closed) {
           state.snapshot.issue = "ui_unexpected_order_response_from_ifood";
           renderPip();
         }
+        return false;
       }
     }
 
@@ -121,8 +126,7 @@ module.exports = function createTraffic(context) {
       const response = await state.replay.call(state.pip);
       if (!response.ok) return { ok: false, reason: `HTTP ${response.status}` };
       const data = await response.json();
-      recordEvents(data, orderId, false);
-      return { ok: true };
+      return recordEvents(data, orderId, false) ? { ok: true } : { ok:false, reason:'invalid response' };
     };
   }
 

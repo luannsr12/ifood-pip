@@ -1,7 +1,6 @@
 module.exports = function createPreferences(storage) {
   const definitions = {
-    language: {key:'ifood-pip-language', values:['pt','en','es'], fallback:'pt'},
-    mode: {key:'ifood-pip-mode', values:['full','compact'], fallback:'full'}
+    language: {key:'ifood-pip-language', values:['pt','en','es'], fallback:'pt'}
   };
   return {
     read(name) {
