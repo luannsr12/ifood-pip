@@ -4,6 +4,7 @@ playwright-report/
 coverage/
 .cache/
 .playwright/
+releases/
 
 # Local configuration and diagnostic output; keep the generated content.js tracked.
 .env

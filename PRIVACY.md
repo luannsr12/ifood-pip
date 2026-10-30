@@ -1,13 +1,14 @@
 # Política de Privacidade — iFood PiP
 
-**Versão da extensão:** 0.0.6  
+**Versão da extensão:** 0.0.7
+
 **Última atualização:** 30 de outubro de 2026
 
 O **iFood PiP** é uma extensão independente que permite acompanhar pedidos do iFood em uma janela flutuante (*Document Picture-in-Picture*), inclusive enquanto você utiliza outros aplicativos.
 
 A privacidade faz parte do funcionamento do projeto: **a extensão não possui servidores próprios, não inclui anúncios ou ferramentas de análise e não envia informações dos pedidos ao desenvolvedor**.
 
-Esta política descreve o comportamento da versão 0.0.6.
+Esta política descreve o comportamento da versão 0.0.7.
 
 ## 1. Onde a extensão funciona
 
