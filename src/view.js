@@ -8,24 +8,16 @@ module.exports = function createView(context) {
   const compactContent = require('./compact-content');
   const statusText = data => tx(state.mode==='compact' ? compactStatus(data.label) : data.label);
   const compactHeight = () => 142;
-  function detailRows(data,extras) {
-    const allowed=visibility(data), rows=[];
-    if (!allowed.order) return rows;
-    if (extras.eta) rows.push(['ui_delivery_window',extras.eta.replace(/^Hoje,?\s*/i,'')]);
-    const meters=data.routeDistanceMeters || state.orderDetails.routeDistanceMeters || extras.routeDistanceMeters;
-    if (['shipping','arriving','delivered'].includes(data.stage) && meters>0) rows.push(['ui_store_to_address_distance',format.kilometers(meters).replace('km',' km')]);
-    for (const [moment,label] of [['completed','ui_order_completed'],['arrived','ui_courier_at_your_address'],['departed','ui_departure_time'],['preparing','ui_preparation_started_at'],['confirmed','ui_order_confirmed'],['created','ui_order_created']]) {
-      if (data.timeline?.[moment] && (moment!=='departed' || !allowed.merchantWindow)) rows.push([label,format.time(data.timeline[moment])]);
-    }
-    return rows;
+  function deliveryWindow(data,extras,eta) {
+    return visibility(data).order && !['delivered','cancelled'].includes(data.stage) && !eta.preDispatch
+      ? require('./compact-content').estimate({},extras).window || '' : '';
   }
   function fullHeight(snapshot=state.snapshot) {
     const extras=readOptionalPageInfo(),data=displaySnapshot(snapshot,extras),allowed=visibility(data);
     const courier=allowed.courier && Boolean(data.driver || state.orderDetails.driver);
     const code=allowed.deliveryCode && Boolean(data.code || extras.code);
-    const details=detailRows(data,extras).length;
     const eta=estimateArrival(data,extras);
-    return 244 + (eta.source?14:0) + Math.ceil(details/2)*40 + (details?8:0) + (courier?40:0) + (code?48:0) + (data.issue?40:0);
+    return Math.max(280,244 + (courier?40:0) + (code?54:0) + (data.issue?40:0));
   }
   const ICONS = {
     expand: '<path d="M14 4h6v6M20 4l-7 7M10 20H4v-6m0 6 7-7"/>',
@@ -53,14 +45,13 @@ module.exports = function createView(context) {
     doc.body.innerHTML = `<main class="shell">
       <button class="mode-toggle" id="toggle-mode" type="button"></button>
       <section class="merchant"><div class="avatar" id="store-avatar">${icon('store')}</div><div><strong id="restaurant">${tx("ui_ifood_order")}</strong><div class="micro" id="order-number">${tx("ui_live_order_tracking")}</div></div><svg class="ifood-mark" role="img" aria-label="iFood" viewBox="0 0 24 24" fill="currentColor"><title>iFood</title><path d="M8.428 1.67c-4.65 0-7.184 4.149-7.184 6.998 0 2.294 2.2 3.299 4.25 3.299l-.006-.006c4.244 0 7.184-3.854 7.184-6.998 0-2.29-2.175-3.293-4.244-3.293zm11.328 0c-4.65 0-7.184 4.149-7.184 6.998 0 2.294 2.2 3.299 4.25 3.299l-.006-.006C21.061 11.96 24 8.107 24 4.963c0-2.29-2.18-3.293-4.244-3.293zM14.172 14.52l2.435 1.834c-2.17 2.07-6.124 3.525-9.353 3.17A8.913 8.913 0 01.23 14.541H0a9.598 9.598 0 008.828 7.758c3.814.24 7.323-.905 9.947-3.13l-.004.007 1.08 2.988 1.555-7.623-7.234-.02Z"/></svg></section>
-      <section class="hero" aria-label="${tx("ui_delivery_window")}"><span class="eta-clock">${icon('clock')}</span><div class="eta" id="eta">${tx("ui_tracking_your_order")}</div><div class="eta-detail" id="eta-detail"></div><div class="eta-source" id="eta-source"></div></section>
-      <section class="journey" aria-label="${tx("ui_order_status")}"><div class="status-head"><div class="status-symbol" id="status-symbol">${icon('bag')}</div><div><h1 id="status" role="status" aria-live="polite"></h1></div></div>
+      <section class="hero" aria-label="${tx("ui_delivery_window")}"><span class="eta-clock">${icon('clock')}</span><div class="eta" id="eta">${tx("ui_tracking_your_order")}</div><div class="eta-detail" id="eta-detail"></div></section>
+      <section class="journey" aria-label="${tx("ui_order_status")}"><div class="status-head"><div class="status-symbol" id="status-symbol">${icon('bag')}</div><div><h1 id="status" role="status" aria-live="polite"></h1></div><div class="delivery-window" id="delivery-window" hidden><strong id="delivery-window-value"></strong></div></div>
         <div class="segments" role="progressbar" aria-label="${tx("ui_order_progress")}" aria-valuemin="0" aria-valuemax="4" id="progress">${[0,1,2,3].map(n=>`<div class="segment" id="segment-${n}"></div>`).join('')}</div>
         <div class="steps">${["ui_confirmed","ui_preparing","ui_on_the_way","ui_delivered"].map((s,n)=>`<span id="step-${n}" class="step"><span class="step-icon">${icon(['check','bag','bike','home'][n])}</span><span data-i18n="${s}">${tx(s)}</span></span>`).join('')}</div>
       </section>
       <section class="driver" id="driver-card" hidden><div class="avatar" id="driver-avatar"></div><div><strong id="driver-name"></strong><div class="micro" id="driver-state"></div></div><span class="vehicle">${icon('bike')}<span id="vehicle"></span></span></section>
       <section class="code" id="code-card" hidden><div><div class="code-label">${icon('key')} <span data-i18n="ui_delivery_code">${tx("ui_delivery_code")}</span></div><small data-i18n="ui_share_when_receiving_your_order">${tx("ui_share_when_receiving_your_order")}</small></div><div class="digits" id="code"></div></section>
-      <dl class="order-details" id="order-details" hidden></dl>
       <section class="compact-distance" id="compact-distance" hidden>${icon('pin')}<span id="compact-distance-value"></span></section>
       <div class="notice" id="note" role="status" hidden></div>
       <footer class="footer"><div class="footer-meta"><select class="language" id="language" aria-label="${tx("ui_language")}"><option value="en" data-language="language_en">EN</option><option value="pt" data-language="language_pt">PT</option><option value="es" data-language="language_es">ES</option></select><span class="updated" id="updated"></span></div><div class="actions"><button class="action" id="refresh" type="button" title="${tx("ui_check_for_updates_now")}">${icon('refresh')} <span data-i18n="ui_refresh">${tx("ui_refresh")}</span></button><button class="action" id="back" type="button"><span data-i18n="ui_view_order">${tx("ui_view_order")}</span> ${icon('arrow')}</button></div></footer>
@@ -139,7 +130,11 @@ module.exports = function createView(context) {
     doc.getElementById('restaurant').title=store || tx("ui_ifood_order");
     set('order-number',permitted.order ? tx(message('order_number',{number:extras.number ? '#'+extras.number : '· '+(state.activeOrderId?.slice(0,8) || '—')})) : '');
     setAvatar(doc,'store-avatar',permitted.order ? extras.storePhoto : '','store');
-    set('eta',tx(eta.title)); set('eta-detail',tx(eta.detail)); set('eta-source',tx(eta.source));
+    set('eta',tx(eta.title)); set('eta-detail',eta.preDispatch || eta.title?.key==='order_arrives' ? tx(eta.detail) : '');
+    const merchantWindow=deliveryWindow(data,extras,eta);
+    doc.getElementById('delivery-window').hidden=state.mode!=='full' || !merchantWindow;
+    set('delivery-window-value',merchantWindow);
+    doc.getElementById('delivery-window').setAttribute('aria-label',tx(/amanh[aã]/i.test(extras.eta || '')?'ui_delivery_window_tomorrow':'ui_delivery_window')+': '+merchantWindow);
     set('status',statusText(data));
     // Compact mode preserves the actual status and progress. Its optional
     // ETA rail only appears when there is useful, non-redundant information.
@@ -198,13 +193,6 @@ module.exports = function createView(context) {
       digits.dataset.code = code; digits.replaceChildren();
       for (const digit of code) { const span=doc.createElement('span'); span.className='digit'; span.textContent=digit; digits.append(span); }
     }
-    const details=doc.getElementById('order-details');
-    details.replaceChildren();
-    for (const [label,value] of detailRows(data,extras)) {
-      const cell=doc.createElement('div'),term=doc.createElement('dt'),description=doc.createElement('dd');
-      term.textContent=tx(label);description.textContent=value;cell.append(term,description);details.append(cell);
-    }
-    details.hidden=!details.children.length;
     set('note',tx(issue || '')); doc.getElementById('note').hidden = !issue;
     const updatedText = tx(data.checkedAt ? message('order_updated',{event:format.time(data.eventTime) || '—',time:format.time(data.checkedAt)}) : 'ui_waiting_for_ifood');
     const compactIssue = state.mode === 'compact' && issue;

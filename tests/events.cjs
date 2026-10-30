@@ -111,6 +111,16 @@ function scenario(value,index) {
           assert.ok(steps.every(s=>s.font>=12&&s.icon>=(mode==='full'?16:0)&&s.right<=s.cell+1),value+' '+mode+' unreadable progress '+JSON.stringify(steps));
           assert.ok(steps.every(s=>s.textVisible===(mode==='full') && s.accessibleName && s.icon===(mode==='full'?16:0)),value+' '+mode+' incorrect step presentation '+JSON.stringify(steps));
           if(mode==='full') {
+            assert.equal(await pip.locator('#eta-source').count(),0,value+' extra explanatory line returned');
+            const detail=await pip.locator('#eta-detail').evaluate(el=>({height:el.getBoundingClientRect().height,scroll:el.scrollWidth,width:el.clientWidth}));
+            assert.ok(detail.height<=16 && detail.scroll<=detail.width+1,value+' '+language+' ETA detail is not one line: '+JSON.stringify(detail));
+            if(['shipping','arriving'].includes(data.stage)) {
+              const alignment=await pip.evaluate(()=>{
+                const status=document.getElementById('status').getBoundingClientRect(),range=document.getElementById('delivery-window').getBoundingClientRect(),card=document.querySelector('.journey').getBoundingClientRect();
+                return {visible:!!range.width,gap:range.left-status.right,offset:Math.abs((range.top+range.bottom-status.top-status.bottom)/2),right:range.right,cardRight:card.right};
+              });
+              assert.ok(alignment.visible && alignment.gap>=4 && alignment.offset<=1 && alignment.right<alignment.cardRight,value+' '+language+' merchant window is not aligned beside status: '+JSON.stringify(alignment));
+            }
             const geometry=await pip.evaluate(()=>{
               const steps=[...document.querySelectorAll('.step')],bars=[...document.querySelectorAll('.segment')];
               return {height:innerHeight,width:innerWidth,scroll:document.documentElement.scrollWidth,footer:document.querySelector('.footer').getBoundingClientRect().bottom,cells:steps.map((step,n)=>{const text=step.lastElementChild.getBoundingClientRect(),bar=bars[n].getBoundingClientRect(),cell=step.getBoundingClientRect();return {width:cell.width,height:cell.height,offset:Math.abs((text.left+text.right-bar.left-bar.right)/2),textWidth:text.width}})};
@@ -123,8 +133,18 @@ function scenario(value,index) {
           }
         }
         if(mode==='full') {
-          const sizes=await pip.evaluate(()=>['.micro','.eta-detail','.eta-source','#status','.driver strong','.code-label','.code small','.order-details dt','.order-details dd','.updated','.action'].flatMap(selector=>[...document.querySelectorAll(selector)].filter(el=>el.getBoundingClientRect().height).map(el=>({selector,size:parseFloat(getComputedStyle(el).fontSize)}))));
+          assert.equal(await pip.locator('#order-details').count(),0,'removed details grid reappeared');
+          if(data.stage==='shipping') {
+            assert.match(await pip.locator('#eta-detail').innerText(),/km/,'route distance missing from ETA summary');
+            assert.equal(await pip.locator('#delivery-window-value').innerText(),deliveryWindow.range,'merchant window missing beside route estimate');
+            assert.equal(await pip.locator('#delivery-window').isVisible(),true);
+          }
+          const sizes=await pip.evaluate(()=>['.micro','.eta-detail','.eta-source','#status','.driver strong','.code-label','.code small','.delivery-window','.delivery-window strong','.updated','.action'].flatMap(selector=>[...document.querySelectorAll(selector)].filter(el=>el.getBoundingClientRect().height).map(el=>({selector,size:parseFloat(getComputedStyle(el).fontSize)}))));
           assert.ok(sizes.every(s=>s.size>=11),value+' tiny expanded text '+JSON.stringify(sizes));
+          if(state.codeVisible) {
+            const space=await pip.evaluate(()=>document.querySelector('.footer').getBoundingClientRect().top-document.getElementById('code-card').getBoundingClientRect().bottom);
+            assert.ok(space>=10,value+' delivery code is too close to footer: '+space);
+          }
         }
         if(mode==='compact') {
           if(data.stage==='shipping')assert.match(state.status,/^Chega em ~ \d{1,2} minutos?$/);else assert.equal(state.status,catalog[compactStatus(MILESTONES[value]?.label || 'ui_courier_arrived_at_your_address')].message,value+' wrong compact status');
@@ -263,10 +283,17 @@ function scenario(value,index) {
       const data=scenario(value,0);payload=data.events;
       await page.evaluate(id=>fetch(`/site-api/v1/customers/me/orders/${id}/events`).then(res=>res.json()),id);
       await pip.waitForFunction(({stage,label})=>document.body.dataset.stage===stage&&document.getElementById('status').textContent===label,data);
-      const fit=await pip.evaluate(()=>({height:innerHeight,footer:document.querySelector('.footer').getBoundingClientRect().bottom,driver:document.querySelector('.driver').getBoundingClientRect().bottom,code:document.querySelector('.code').getBoundingClientRect().bottom}));
-      assert.ok(fit.footer<=fit.height,value+' short-window footer clipped: '+JSON.stringify(fit));
-      assert.ok(fit.driver<=fit.height,value+' short-window courier clipped');
-      assert.ok(fit.code<=fit.height,value+' short-window code clipped');
+      for(const language of ['en','es','pt']) {
+        await pip.locator('#language').selectOption(language);
+        const fit=await pip.evaluate(()=>({height:innerHeight,footer:document.querySelector('.footer').getBoundingClientRect().bottom,driver:document.querySelector('.driver').getBoundingClientRect().bottom,code:document.querySelector('.code').getBoundingClientRect().bottom}));
+        assert.ok(fit.footer<=fit.height,value+' '+language+' short-window footer clipped: '+JSON.stringify(fit));
+        assert.ok(fit.driver<=fit.height,value+' '+language+' short-window courier clipped');
+        assert.ok(fit.code<=fit.height,value+' '+language+' short-window code clipped');
+        if(['DISPATCHED','ARRIVED_AT_DESTINATION'].includes(value)) {
+          assert.equal(await pip.locator('#code-card').isVisible(),true,value+' '+language+' missing expanded code');
+          assert.equal(await pip.locator('#delivery-window').isVisible(),true,value+' '+language+' missing merchant window');
+        }
+      }
     }
     await pip.screenshot({path:path.join(results,'progressive-short-window.png')});
     assert.deepEqual(errors,[]);
