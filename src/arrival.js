@@ -47,7 +47,7 @@ module.exports = function createArrival(state,format,t) {
       const late = Math.max(0,Math.floor((now-arrival)/60000));
       return { title:"ui_order_delayed", detail:late ? message('order_route_late',{count:late}) : "ui_estimated_trip_time_exceeded", source:"ui_local_route_and_vehicle_estimate", late:true };
     }
-    const distance = format.number(meters/1000);
+    const distance = format.kilometers(meters).replace('km','');
     const time = format.time(departedAt);
     return { title:message('order_arrives',{count:remaining}), detail:message('order_route',{distance:(explicitMeters===null?'~':'')+distance,vehicle:t(modal),time}), source:explicitMeters===null?"ui_local_estimate_geographic_distance_1_3":"ui_local_estimate_route_distance" };
   }

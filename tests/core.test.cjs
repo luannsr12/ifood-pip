@@ -26,6 +26,30 @@ test('language changes, interpolation, fallback and invariant minute pluralizati
   language='en'; assert.equal(t(message('order_arrives',{count:2})),'Arrives in ~2 min');
   language='es'; assert.equal(t(message('order_arrives',{count:1})),'Llega en ~1 min');
   assert.equal(createI18n({pt:catalogs.pt,en:{}},()=> 'en').t('pip_expand'),'Expandir acompanhamento');
+  language='pt';assert.equal(t(message('pip_eta_minutes',{count:10})),'~ 10 minutos');
+  assert.equal(t(message('pip_eta_minutes',{count:1})),'~ 1 minuto');
+});
+test('browser fixtures promise delivery 20 to 30 minutes from test start, including midnight',()=>{
+  const window=require('./delivery-window.cjs');
+  assert.deepEqual(window(new Date(2026,9,30,15,56).getTime()),{range:'16:16 – 16:26',label:'Hoje, 16:16 – 16:26'});
+  assert.deepEqual(window(new Date(2026,9,30,23,50).getTime()),{range:'00:10 – 00:20',label:'Amanhã, 00:10 – 00:20'});
+});
+test('short positive distances never round down to zero kilometers',()=>{
+  const pt=createFormat(()=> 'pt-BR'),en=createFormat(()=> 'en-US');
+  assert.equal(pt.kilometers(2300),'2,3km');
+  assert.equal(pt.kilometers(12),'0,012km');
+  assert.equal(pt.kilometers(.5),'<0,001km');
+  assert.equal(en.kilometers(12),'0.012km');
+  assert.equal(en.kilometers(199900),'199.9km');
+});
+test('every event has a compact label while full wording stays available',()=>{
+  const compact=require('../src/compact-status');
+  for(const event of Object.values(order.MILESTONES)) {
+    assert.notEqual(compact(event.label),event.label);
+    for(const catalog of Object.values(catalogs)) assert.ok(catalog[compact(event.label)]?.message);
+  }
+  assert.equal(catalogs.pt[compact('ui_courier_arrived_at_your_address')].message,'Chegou por aí');
+  assert.equal(catalogs.pt[compact('ui_order_out_for_delivery')].message,'Saiu para entrega');
 });
 test('preferences preserve saved language; storage can be blocked',()=>{
   const map=new Map(); const preferences=require('../src/preferences')(()=>({getItem:k=>map.get(k),setItem:(k,v)=>map.set(k,v)}));

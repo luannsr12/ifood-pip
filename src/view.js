@@ -1,28 +1,23 @@
-const {safeImage} = require('./order');
+const {safeImage,finiteDistance} = require('./order');
 module.exports = function createView(context) {
   const {state,tx,format,readOptionalPageInfo,estimateArrival,changeLanguage,pollEvents,toggleMode} = context;
   const {displaySnapshot} = require('./order');
   const {message} = require('./i18n');
   const visibility = require('./visibility');
-  const statusText = data => tx(data.label);
-  function detailRows(data,extras) {
-    const allowed=visibility(data), rows=[];
-    if (!allowed.order) return rows;
-    if (extras.eta) rows.push(['ui_delivery_window',extras.eta.replace(/^Hoje,?\s*/i,'')]);
-    const meters=data.routeDistanceMeters || state.orderDetails.routeDistanceMeters || extras.routeDistanceMeters;
-    if (['shipping','arriving','delivered'].includes(data.stage) && meters>0) rows.push(['ui_store_to_address_distance',format.number(meters/1000)+' km']);
-    for (const [moment,label] of [['completed','ui_order_completed'],['arrived','ui_courier_at_your_address'],['departed','ui_departure_time'],['preparing','ui_preparation_started_at'],['confirmed','ui_order_confirmed'],['created','ui_order_created']]) {
-      if (data.timeline?.[moment] && (moment!=='departed' || !allowed.merchantWindow)) rows.push([label,format.time(data.timeline[moment])]);
-    }
-    return rows;
+  const compactStatus = require('./compact-status');
+  const compactContent = require('./compact-content');
+  const statusText = data => tx(state.mode==='compact' ? compactStatus(data.label) : data.label);
+  const compactHeight = () => 142;
+  function deliveryWindow(data,extras,eta) {
+    return visibility(data).order && !['delivered','cancelled'].includes(data.stage) && !eta.preDispatch
+      ? require('./compact-content').estimate({},extras).window || '' : '';
   }
   function fullHeight(snapshot=state.snapshot) {
     const extras=readOptionalPageInfo(),data=displaySnapshot(snapshot,extras),allowed=visibility(data);
     const courier=allowed.courier && Boolean(data.driver || state.orderDetails.driver);
     const code=allowed.deliveryCode && Boolean(data.code || extras.code);
-    const details=detailRows(data,extras).length;
     const eta=estimateArrival(data,extras);
-    return 198 + (eta.source?12:0) + Math.ceil(details/2)*31 + (details?8:0) + (courier?33:0) + (code?42:0) + (data.issue?30:0);
+    return Math.max(280,244 + (courier?40:0) + (code?54:0) + (data.issue?40:0));
   }
   const ICONS = {
     expand: '<path d="M14 4h6v6M20 4l-7 7M10 20H4v-6m0 6 7-7"/>',
@@ -36,7 +31,8 @@ module.exports = function createView(context) {
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     refresh: '<path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/>',
     arrow: '<path d="M7 17 17 7H7m10 0v10"/>',
-    key: '<circle cx="8" cy="9" r="4"/><path d="m11 12 9 9m-3-3 3-3m-6 0 3-3"/>'
+    key: '<circle cx="7.5" cy="8.5" r="4.5"/><circle cx="7" cy="8" r=".75"/><path d="m11 12 8 8h3v-3l-2-2h-3v-3h-3"/>',
+    pin:'<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/>'
   };
   function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.bag}</svg>`; }
 
@@ -49,14 +45,14 @@ module.exports = function createView(context) {
     doc.body.innerHTML = `<main class="shell">
       <button class="mode-toggle" id="toggle-mode" type="button"></button>
       <section class="merchant"><div class="avatar" id="store-avatar">${icon('store')}</div><div><strong id="restaurant">${tx("ui_ifood_order")}</strong><div class="micro" id="order-number">${tx("ui_live_order_tracking")}</div></div><svg class="ifood-mark" role="img" aria-label="iFood" viewBox="0 0 24 24" fill="currentColor"><title>iFood</title><path d="M8.428 1.67c-4.65 0-7.184 4.149-7.184 6.998 0 2.294 2.2 3.299 4.25 3.299l-.006-.006c4.244 0 7.184-3.854 7.184-6.998 0-2.29-2.175-3.293-4.244-3.293zm11.328 0c-4.65 0-7.184 4.149-7.184 6.998 0 2.294 2.2 3.299 4.25 3.299l-.006-.006C21.061 11.96 24 8.107 24 4.963c0-2.29-2.18-3.293-4.244-3.293zM14.172 14.52l2.435 1.834c-2.17 2.07-6.124 3.525-9.353 3.17A8.913 8.913 0 01.23 14.541H0a9.598 9.598 0 008.828 7.758c3.814.24 7.323-.905 9.947-3.13l-.004.007 1.08 2.988 1.555-7.623-7.234-.02Z"/></svg></section>
-      <section class="hero" aria-label="${tx("ui_delivery_window")}"><span class="eta-clock">${icon('clock')}</span><div class="eta" id="eta">${tx("ui_tracking_your_order")}</div><div class="eta-detail" id="eta-detail"></div><div class="eta-source" id="eta-source"></div></section>
-      <section class="journey" aria-label="${tx("ui_order_status")}"><div class="status-head"><div class="status-symbol" id="status-symbol">${icon('bag')}</div><div><h1 id="status" role="status" aria-live="polite"></h1></div></div>
+      <section class="hero" aria-label="${tx("ui_delivery_window")}"><span class="eta-clock">${icon('clock')}</span><div class="eta" id="eta">${tx("ui_tracking_your_order")}</div><div class="eta-detail" id="eta-detail"></div></section>
+      <section class="journey" aria-label="${tx("ui_order_status")}"><div class="status-head"><div class="status-symbol" id="status-symbol">${icon('bag')}</div><div><h1 id="status" role="status" aria-live="polite"></h1></div><div class="delivery-window" id="delivery-window" hidden><strong id="delivery-window-value"></strong></div></div>
         <div class="segments" role="progressbar" aria-label="${tx("ui_order_progress")}" aria-valuemin="0" aria-valuemax="4" id="progress">${[0,1,2,3].map(n=>`<div class="segment" id="segment-${n}"></div>`).join('')}</div>
         <div class="steps">${["ui_confirmed","ui_preparing","ui_on_the_way","ui_delivered"].map((s,n)=>`<span id="step-${n}" class="step"><span class="step-icon">${icon(['check','bag','bike','home'][n])}</span><span data-i18n="${s}">${tx(s)}</span></span>`).join('')}</div>
       </section>
       <section class="driver" id="driver-card" hidden><div class="avatar" id="driver-avatar"></div><div><strong id="driver-name"></strong><div class="micro" id="driver-state"></div></div><span class="vehicle">${icon('bike')}<span id="vehicle"></span></span></section>
       <section class="code" id="code-card" hidden><div><div class="code-label">${icon('key')} <span data-i18n="ui_delivery_code">${tx("ui_delivery_code")}</span></div><small data-i18n="ui_share_when_receiving_your_order">${tx("ui_share_when_receiving_your_order")}</small></div><div class="digits" id="code"></div></section>
-      <dl class="order-details" id="order-details" hidden></dl>
+      <section class="compact-distance" id="compact-distance" hidden>${icon('pin')}<span id="compact-distance-value"></span></section>
       <div class="notice" id="note" role="status" hidden></div>
       <footer class="footer"><div class="footer-meta"><select class="language" id="language" aria-label="${tx("ui_language")}"><option value="en" data-language="language_en">EN</option><option value="pt" data-language="language_pt">PT</option><option value="es" data-language="language_es">ES</option></select><span class="updated" id="updated"></span></div><div class="actions"><button class="action" id="refresh" type="button" title="${tx("ui_check_for_updates_now")}">${icon('refresh')} <span data-i18n="ui_refresh">${tx("ui_refresh")}</span></button><button class="action" id="back" type="button"><span data-i18n="ui_view_order">${tx("ui_view_order")}</span> ${icon('arrow')}</button></div></footer>
     </main>`;
@@ -90,7 +86,7 @@ module.exports = function createView(context) {
   function renderPip() {
     if (!state.pip || state.pip.closed) return;
     const extras = readOptionalPageInfo(), data = displaySnapshot(state.snapshot, extras), eta = estimateArrival(data, extras);
-    const signature = JSON.stringify({data, extras, eta, orderId:state.activeOrderId, busy:state.pollInFlight, failures:state.pollFailures, completed:state.pollCompleted, language:state.language, mode:state.mode,height:state.pip.innerHeight});
+    const signature = JSON.stringify({data, extras, eta, details:state.orderDetails, orderId:state.activeOrderId, busy:state.pollInFlight, failures:state.pollFailures, completed:state.pollCompleted, language:state.language, mode:state.mode,height:state.pip.innerHeight,width:state.pip.innerWidth});
     if (signature === state.previousSignature) return;
     state.previousSignature = signature;
     const doc = state.pip.document;
@@ -107,6 +103,10 @@ module.exports = function createView(context) {
     const terminal = ['delivered','cancelled'].includes(data.stage);
     const permitted = visibility(data);
     doc.body.dataset.mode = state.mode;
+    const brand=doc.querySelector('.ifood-mark'),modeButton=doc.getElementById('toggle-mode');
+    const vehicle=doc.querySelector('.vehicle');
+    if(state.mode==='compact') {doc.querySelector('.footer').append(brand,modeButton);doc.querySelector('.shell').append(vehicle)}
+    else {doc.querySelector('.merchant').append(brand);doc.querySelector('.shell').prepend(modeButton);doc.getElementById('driver-card').append(vehicle)}
     doc.body.classList.toggle('constrained',state.mode==='full' && state.pip.innerHeight<fullHeight()-4);
     const toggle = doc.getElementById('toggle-mode');
     const controlLabel = tx(state.mode === 'compact' ? 'pip_expand' : 'pip_collapse');
@@ -130,7 +130,11 @@ module.exports = function createView(context) {
     doc.getElementById('restaurant').title=store || tx("ui_ifood_order");
     set('order-number',permitted.order ? tx(message('order_number',{number:extras.number ? '#'+extras.number : '· '+(state.activeOrderId?.slice(0,8) || '—')})) : '');
     setAvatar(doc,'store-avatar',permitted.order ? extras.storePhoto : '','store');
-    set('eta',tx(eta.title)); set('eta-detail',tx(eta.detail)); set('eta-source',tx(eta.source));
+    set('eta',tx(eta.title)); set('eta-detail',eta.preDispatch || eta.title?.key==='order_arrives' ? tx(eta.detail) : '');
+    const merchantWindow=deliveryWindow(data,extras,eta);
+    doc.getElementById('delivery-window').hidden=state.mode!=='full' || !merchantWindow;
+    set('delivery-window-value',merchantWindow);
+    doc.getElementById('delivery-window').setAttribute('aria-label',tx(/amanh[aã]/i.test(extras.eta || '')?'ui_delivery_window_tomorrow':'ui_delivery_window')+': '+merchantWindow);
     set('status',statusText(data));
     // Compact mode preserves the actual status and progress. Its optional
     // ETA rail only appears when there is useful, non-redundant information.
@@ -140,56 +144,74 @@ module.exports = function createView(context) {
     doc.body.classList.toggle('compact-estimate',usefulEta);
     doc.body.classList.toggle('compact-has-eta',hasCompactEta);
     doc.body.classList.toggle('compact-terminal',terminal);
+    doc.body.classList.remove('compact-route');
     doc.getElementById('eta-detail').hidden = false;
     if (state.mode === 'compact') {
-      if (eta.title?.key === 'order_arrives') {
-        set('eta',tx(message('pip_eta_minutes',{count:eta.title.values.count})));
-      } else if (eta.title?.key === 'order_by') {
-        set('eta',eta.title.values.time);
+      const compactEta=!permitted.order || terminal || data.stage==='arriving' ? {} : compactContent.estimate(eta,extras);
+      set('eta',compactEta.minutes ? tx(message('pip_eta_minutes',{count:compactEta.minutes})) : compactEta.window || '');
+      doc.body.classList.toggle('compact-estimate',Boolean(compactEta.minutes || compactEta.window));
+      if(data.stage==='shipping') {
+        if(compactEta.minutes) {
+          set('status',tx(message('pip_route_arrival',{count:compactEta.minutes})));
+          doc.body.classList.add('compact-route');
+        } else set('status',tx(compactStatus('ui_order_out_for_delivery')));
       }
-      if (eta.late && !eta.preDispatch) set('eta',tx('pip_eta_late'));
       set('eta-detail',tx(eta.preDispatch ? eta.detail : 'pip_estimated_arrival'));
     }
     doc.getElementById('status-symbol').innerHTML = data.stage === 'cancelled' ? '<span aria-hidden="true">×</span>' : icon(terminal ? 'check' : ['shipping','arriving','driver'].includes(data.stage) ? 'bike' : 'bag');
     for (let n=0;n<4;n++) {
       doc.getElementById(`segment-${n}`).className = `segment${n<index ? ' done' : n===index && !terminal && progressStarted ? ' active' : ''}`;
       doc.getElementById(`step-${n}`).className = 'step ' + (n<index ? 'done' : n===index && !terminal && progressStarted ? 'current' : '');
+      doc.getElementById(`step-${n}`).setAttribute('aria-label',tx(['ui_confirmed','ui_preparing','ui_on_the_way','ui_delivered'][n]));
+      doc.getElementById(`step-${n}`).title=tx(['ui_confirmed','ui_preparing','ui_on_the_way','ui_delivered'][n]);
     }
     const progress = doc.getElementById('progress');
     progress.setAttribute('aria-valuenow',String(index)); progress.setAttribute('aria-valuetext',statusText(data));
     const driver = permitted.courier ? data.driver || state.orderDetails.driver : '';
+    vehicle.hidden=state.mode==='compact' && !driver;
     doc.body.classList.toggle('compact-has-driver',Boolean(driver));
     doc.getElementById('driver-card').hidden = !driver;
     const driverStage = data.driverPhase || data.stage;
     set('driver-name',driver || ''); set('driver-state',tx(terminal ? "ui_delivery_completed" : data.driverLabel || (driverStage==='driver' ? "ui_heading_to_the_restaurant" : driverStage==='atStore' ? "ui_at_the_restaurant" : ['shipping','arriving'].includes(data.stage) ? "ui_delivering_your_order" : "ui_courier_assigned")));
-    set('vehicle',permitted.courier ? tx(data.modal || state.orderDetails.modal || "ui_courier") : ''); setAvatar(doc,'driver-avatar',permitted.courier ? data.driverPhoto || state.orderDetails.driverPhoto : '','driver');
+    const modal=permitted.courier ? data.modal || state.orderDetails.modal || '' : '';
+    set('vehicle',modal ? tx(modal) : state.mode==='full'?tx('ui_courier'):'');
+    vehicle.hidden=state.mode==='compact' && (!driver || !modal);
+    const meters=[data.routeDistanceMeters,state.orderDetails.routeDistanceMeters,extras.routeDistanceMeters].map(finiteDistance).find(value=>value!==null);
+    const distance=doc.getElementById('compact-distance');
+    distance.hidden=state.mode!=='compact' || !driver || meters===undefined;
+    set('compact-distance-value',meters===undefined?'':format.kilometers(meters));
+    distance.title=tx('ui_store_to_address_distance');
+    distance.setAttribute('aria-label',tx('ui_store_to_address_distance')+(meters===undefined?'':': '+format.kilometers(meters).replace('km',' km')));
+    setAvatar(doc,'driver-avatar',permitted.courier ? data.driverPhoto || state.orderDetails.driverPhoto : '','driver');
     const code = permitted.deliveryCode ? data.code || extras.code : '';
+    doc.body.classList.toggle('long-code',code.length>4);
     doc.getElementById('code-card').setAttribute('aria-label',tx('ui_delivery_code'));
-    doc.getElementById('code-card').hidden = !code || !permitted.deliveryCode;
-    doc.body.classList.toggle('compact-show-code',state.mode === 'compact' && Boolean(code) && permitted.deliveryCode);
+    doc.getElementById('code-card').hidden = !code || !permitted.deliveryCode || (state.mode==='compact' && !driver);
+    doc.body.classList.toggle('compact-show-code',state.mode === 'compact' && Boolean(driver && code) && permitted.deliveryCode);
     const digits = doc.getElementById('code');
     if (digits.dataset.code !== code) {
       digits.dataset.code = code; digits.replaceChildren();
       for (const digit of code) { const span=doc.createElement('span'); span.className='digit'; span.textContent=digit; digits.append(span); }
     }
-    const details=doc.getElementById('order-details');
-    details.replaceChildren();
-    for (const [label,value] of detailRows(data,extras)) {
-      const cell=doc.createElement('div'),term=doc.createElement('dt'),description=doc.createElement('dd');
-      term.textContent=tx(label);description.textContent=value;cell.append(term,description);details.append(cell);
-    }
-    details.hidden=!details.children.length;
     set('note',tx(issue || '')); doc.getElementById('note').hidden = !issue;
     const updatedText = tx(data.checkedAt ? message('order_updated',{event:format.time(data.eventTime) || '—',time:format.time(data.checkedAt)}) : 'ui_waiting_for_ifood');
     const compactIssue = state.mode === 'compact' && issue;
-    set('updated',compactIssue ? tx('ui_update_failed') : updatedText);
+    set('updated',state.mode==='compact' ? tx(message('pip_checked_at',{time:format.time(data.checkedAt) || '—'})) : updatedText);
     const updateDescription = compactIssue ? tx(issue) : updatedText;
     doc.getElementById('updated').title = updateDescription;
     doc.getElementById('updated').setAttribute('aria-label',updateDescription);
     doc.getElementById('refresh').title=tx("ui_check_for_updates_now");
     const refresh = doc.getElementById('refresh'); refresh.disabled=state.pollInFlight || state.pollFailures>=4 || state.pollCompleted || terminal; refresh.classList.toggle('refreshing',state.pollInFlight);
+    if(state.mode==='compact') {
+      const courierName=doc.getElementById('driver-name');
+      doc.body.style.setProperty('--eta-width',Math.ceil(doc.getElementById('eta').getBoundingClientRect().width)+'px');
+      compactContent.fitName(doc.getElementById('restaurant'),store || tx('ui_ifood_order'));
+      courierName.dataset.displayName=compactContent.courierName(driver || '');
+      compactContent.fitName(courierName,courierName.dataset.displayName);
+      courierName.title=driver || '';
+    }
   }
 
 
-  return {buildPipDocument,renderPip,fullHeight};
+  return {buildPipDocument,renderPip,fullHeight,compactHeight};
 };

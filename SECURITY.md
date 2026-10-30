@@ -2,7 +2,7 @@
 
 ## Versões
 
-Utilize a versão mais recente publicada em [Releases](https://github.com/luannsr12/ifood-pip/releases). A versão 0.0.8 está em preparação no código-fonte; um ZIP local não significa que a atualização já foi publicada no GitHub ou na Chrome Web Store.
+Utilize a versão mais recente publicada em [Releases](https://github.com/luannsr12/ifood-pip/releases). A versão de referência deste código-fonte e do pacote de distribuição é 0.0.9. Publicar no GitHub e publicar na Chrome Web Store são processos independentes.
 
 ## Relatos
 

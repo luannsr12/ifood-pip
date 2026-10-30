@@ -7,7 +7,7 @@
 
   Acompanhe o iFood enquanto trabalha, estuda, navega ou usa outros aplicativos — sem precisar manter a aba do pedido em primeiro plano.
 
-  **Versão 0.0.8 em preparação** · **Manifest V3** · **Apache 2.0**
+  **Versão 0.0.9** · **Manifest V3** · **Apache 2.0**
 
   <a href="https://chromewebstore.google.com/detail/ifood-pip-%E2%80%94-pedido-em-min/gkmphecdhlchhmdjfmpjlomoiflhhjbj">
     <img src="https://developer.chrome.com/static/docs/webstore/branding/image/206x58-chrome-web-bcb82d15b2486.png?hl=pt-br"
@@ -36,7 +36,9 @@ Acompanhar uma entrega pelo navegador não deveria exigir que você fique preso 
 - **Previsão por etapa:** antes da saída, mantém a faixa completa da loja (por exemplo, `13:30 – 14:00`) nos dois modos. A contagem `~8 min` começa no horário da saída para entrega; atribuição do entregador e retirada na loja não iniciam o relógio.
 - **Privacidade por padrão:** não tem servidor do desenvolvedor, anúncios nem ferramentas de análise; os dados do pedido não são enviados a um serviço externo do projeto.
 - **Três idiomas:** português, inglês e espanhol, com seleção diretamente na mini janela.
-- **Dois modos:** a PiP sempre abre recolhida. O controle no canto superior expande o acompanhamento com horários dos eventos, faixa prometida, trajeto e detalhes do entregador disponíveis naquele momento.
+- **Dois modos:** a PiP sempre abre recolhida. O controle de expansão mostra as etapas com nomes e ícones, a faixa prometida, um resumo do percurso, dados do entregador e código de entrega, conforme disponíveis.
+- **Compacto reorganizado:** status em destaque, loja e número do pedido na mesma linha e barras de progresso sem legendas. Quando há entregador, nome/foto, veículo, distância e código ocupam células estáveis; os campos ausentes não deslocam os demais.
+- **Leitura mais clara:** fontes maiores nos dois modos e etapas do expandido com ícones acima dos nomes, centralizados sob suas barras. Os textos foram revisados em português, inglês e espanhol.
 - **Consultas com limite:** quatro falhas consecutivas pausam as consultas da extensão e exibem uma orientação discreta para abrir o pedido no iFood e atualizar a página. Uma resposta válida do site libera novamente as consultas. Pedidos concluídos ou cancelados encerram o polling.
 - **Informações no momento certo:** entregador, veículo, trajeto e código aparecem conforme os eventos permitem. O código fica disponível durante a entrega e desaparece após a validação ou conclusão. O modo completo começa menor e acomoda os detalhes que surgirem.
 
@@ -52,7 +54,7 @@ As imagens abaixo são materiais ilustrativos de apresentação. As capturas dos
 
 ### Pacote pronto (Edge ou Chrome)
 
-A `0.0.8` está disponível como [ZIP de distribuição](releases/ifood-pip-0.0.8-chrome-web-store.zip), com polling de 60 segundos. A última versão publicada no GitHub permanece acessível em [Releases](https://github.com/luannsr12/ifood-pip/releases/latest). Em **Assets**, escolha `ifood-pip-<versão>-chrome-web-store.zip`; os links automáticos **Source code** incluem o repositório completo. Consulte [releases/README.md](releases/README.md) para o conteúdo e a validação dos pacotes.
+A `0.0.9` está disponível como [ZIP de distribuição](releases/ifood-pip-0.0.9-chrome-web-store.zip), com a interface revisada e polling de 60 segundos. Consulte as [notas da versão](releases/NOTES-0.0.9.md) e a [release v0.0.9](https://github.com/luannsr12/ifood-pip/releases/tag/0.0.9). Em **Assets**, escolha `ifood-pip-0.0.9-chrome-web-store.zip`; os links automáticos **Source code** incluem o repositório completo. Consulte [releases/README.md](releases/README.md) para o conteúdo e a validação dos pacotes.
 
 1. Baixe o ZIP de distribuição e extraia os arquivos.
 2. Acesse `edge://extensions` no Microsoft Edge ou `chrome://extensions` no Google Chrome.

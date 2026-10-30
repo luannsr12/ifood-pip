@@ -11,7 +11,7 @@ npm run check
 git diff --check
 ```
 
-Os 24 testes atuais verificam traduções, preferência de idioma, normalização e ordem dos eventos, histórico recebido, visibilidade por etapa, estimativas ancoradas na saída, agendamento de polling, limite de quatro falhas, encerramento na conclusão e o cenário de tempo real com relógio controlado. O polling de produção está configurado para 60.000 ms; o relógio usado nesses testes não precisa esperar um minuto real.
+Os 29 testes atuais verificam traduções, preferência de idioma, normalização e ordem dos eventos, histórico recebido, visibilidade por etapa, estimativas ancoradas na saída, agendamento de polling, limite de quatro falhas, encerramento na conclusão e o cenário de tempo real com relógio controlado. O polling de produção está configurado para 60.000 ms; o relógio usado nesses testes não precisa esperar um minuto real.
 
 ## Testes no navegador
 
@@ -28,6 +28,8 @@ O teste completo aguarda até 65 segundos pela consulta periódica e observa mai
 
 O teste de recuperação usa relógio controlado e executa os callbacks de consulta agendados para verificar as quatro falhas sem esperar quatro minutos. A interface é a PiP real do Edge; o transporte usa respostas sintéticas.
 
+As verificações de interface também conferem ícones visíveis nas quatro etapas, fonte de 12 px e ícones de 16 px acima dos nomes no expandido, apenas barras de progresso no compacto e nenhum texto visível abaixo de 11 px no expandido.
+
 Os pedidos e as respostas são sintéticos. Na PiP, somente o transporte de teste é adaptado; interface, Request, headers, timers e callbacks pertencem à extensão real. Nenhum desses testes confirma uma entrega autenticada real no iFood.
 
 ## Simulação interativa
@@ -42,6 +44,6 @@ O painel permite reiniciar, encerrar ou pausar as consultas da aba para observar
 
 ## Resultados
 
-`test-results/events/index.html` reúne as capturas comparativas. `test-results/realtime/latest.json` identifica a sessão interativa mais recente; o estado e as capturas ficam em sua subpasta. Tudo em `test-results/` é ignorado pelo Git e excluído do ZIP de produção.
+`test-results/events/index.html` reúne as capturas comparativas. `test-results/events/languages.html` compara o expandido nos três idiomas, com as mesmas dimensões de etapas. `test-results/events/stress.html` mostra os nomes longos e os limites de minutagem. `test-results/realtime/latest.json` identifica a sessão interativa mais recente; o estado e as capturas ficam em sua subpasta. Tudo em `test-results/` é ignorado pelo Git e excluído do ZIP de produção.
 
 Consulte [VALIDATION.md](VALIDATION.md) para saber o que foi executado e quais limitações permanecem.
