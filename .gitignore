@@ -1,0 +1,16 @@
+node_modules/
+test-results/
+playwright-report/
+coverage/
+.cache/
+.playwright/
+
+# Local configuration and diagnostic output; keep the generated content.js tracked.
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+Thumbs.db
+Desktop.ini
+.DS_Store

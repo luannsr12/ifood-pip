@@ -1,0 +1,10 @@
+{
+  "name": "ifood-pip",
+  "version": "0.0.6",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "check": "node scripts/build.cjs --check && node --check content.js"
+  }
+}

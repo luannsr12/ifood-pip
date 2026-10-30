@@ -1,4 +1,357 @@
 {
-  "extensionName": { "message": "iFood PiP — Order Mini Window" },
-  "extensionDescription": { "message": "Unofficial iFood order tracking in a compact floating window, with delivery status, route estimates and three interface languages." }
+  "pip_eta_late": { "message": "Delayed" },
+  "pip_eta_minutes": { "message": "~$count$ min", "placeholders": { "count": { "content": "$1" } } },
+  "pip_estimated_arrival": { "message": "Estimated arrival" },
+  "ui_update_failed": { "message": "Update failed" },
+  "extensionName": {
+    "message": "iFood PiP — Order Mini Window"
+  },
+  "extensionDescription": {
+    "message": "Unofficial iFood order tracking in a compact floating window, with delivery status, route estimates and three interface languages."
+  },
+  "ui_order_created": {
+    "message": "Order created"
+  },
+  "ui_order_placed": {
+    "message": "Order placed"
+  },
+  "ui_order_confirmed": {
+    "message": "Order confirmed"
+  },
+  "ui_the_restaurant_is_preparing_your_order": {
+    "message": "The restaurant is preparing your order"
+  },
+  "ui_your_order_is_being_packed": {
+    "message": "Your order is being packed"
+  },
+  "ui_courier_assigned": {
+    "message": "Courier assigned"
+  },
+  "ui_courier_accepted_the_delivery": {
+    "message": "Courier accepted the delivery"
+  },
+  "ui_courier_heading_to_the_restaurant": {
+    "message": "Courier heading to the restaurant"
+  },
+  "ui_courier_arrived_at_the_restaurant": {
+    "message": "Courier arrived at the restaurant"
+  },
+  "ui_order_ready_for_pickup": {
+    "message": "Order ready for pickup"
+  },
+  "ui_order_packed": {
+    "message": "Order packed"
+  },
+  "ui_courier_picked_up_your_order": {
+    "message": "Courier picked up your order"
+  },
+  "ui_order_out_for_delivery": {
+    "message": "Order out for delivery"
+  },
+  "ui_your_order_is_on_its_way": {
+    "message": "Your order is on its way"
+  },
+  "ui_courier_arrived_at_your_address": {
+    "message": "Courier arrived at your address"
+  },
+  "ui_order_delivered": {
+    "message": "Order delivered"
+  },
+  "ui_order_completed": {
+    "message": "Order completed"
+  },
+  "ui_order_canceled": {
+    "message": "Order canceled"
+  },
+  "ui_order_ready_courier_heading_to_the_store": {
+    "message": "Order ready · courier heading to the store"
+  },
+  "ui_waiting_for_an_order_update": {
+    "message": "Waiting for an order update"
+  },
+  "ui_checking_order_updates": {
+    "message": "Checking order updates…"
+  },
+  "ui_your_order_is_being_prepared_for_delivery": {
+    "message": "Your order is being prepared for delivery"
+  },
+  "ui_ifood_order": {
+    "message": "iFood order"
+  },
+  "ui_order": {
+    "message": "Order"
+  },
+  "ui_live_order_tracking": {
+    "message": "Live order tracking"
+  },
+  "ui_your_order_ifood_pip": {
+    "message": "Your order · iFood PiP"
+  },
+  "ui_order_mini_window": {
+    "message": "Order mini window"
+  },
+  "ui_close_mini_window": {
+    "message": "Close mini window"
+  },
+  "ui_open_ifood_order_in_picture_in_picture": {
+    "message": "Open iFood order in Picture-in-Picture"
+  },
+  "ui_your_browser_does_not_support_document_picture_in_picture_here": {
+    "message": "Your browser does not support Document Picture-in-Picture here."
+  },
+  "ui_could_not_open_the_mini_window_click_the_button_again": {
+    "message": "Could not open the mini window. Click the button again."
+  },
+  "ui_could_not_open_the_pip_window": {
+    "message": "Could not open the PiP window."
+  },
+  "ui_unexpected_order_response_from_ifood": {
+    "message": "Unexpected order response from iFood."
+  },
+  "ui_waiting_for_ifood_data_reload_the_page_if_needed": {
+    "message": "Waiting for iFood data. Reload the page if needed."
+  },
+  "ui_could_not_refresh_waiting_for_ifood": {
+    "message": "Could not refresh. Waiting for iFood."
+  },
+  "ui_enjoy_your_meal": {
+    "message": "Enjoy your meal!"
+  },
+  "ui_your_order_has_been_delivered": {
+    "message": "Your order has been delivered."
+  },
+  "ui_completed": {
+    "message": "Completed"
+  },
+  "ui_see_details_on_the_order_page": {
+    "message": "See details on the order page."
+  },
+  "ui_closed": {
+    "message": "Closed"
+  },
+  "ui_your_courier_is_here": {
+    "message": "Your courier is here!"
+  },
+  "ui_get_ready_to_receive_your_order": {
+    "message": "Get ready to receive your order."
+  },
+  "ui_courier_at_your_address": {
+    "message": "Courier at your address"
+  },
+  "ui_order_delayed": {
+    "message": "Order delayed"
+  },
+  "ui_the_expected_time_has_passed": {
+    "message": "The expected time has passed"
+  },
+  "ui_waiting_for_an_updated_ifood_estimate": {
+    "message": "Waiting for an updated iFood estimate"
+  },
+  "ui_delivery_window": {
+    "message": "Delivery window"
+  },
+  "ui_delivery_window_tomorrow": {
+    "message": "Delivery window · tomorrow"
+  },
+  "ui_tracking_your_order": {
+    "message": "Tracking your order"
+  },
+  "ui_the_estimate_appears_when_ifood_provides_it": {
+    "message": "The estimate appears when iFood provides it."
+  },
+  "ui_not_enough_data_for_an_estimate": {
+    "message": "Not enough data for an estimate"
+  },
+  "ui_out_for_delivery": {
+    "message": "Out for delivery"
+  },
+  "ui_store_to_address_distance": {
+    "message": "store-to-address distance"
+  },
+  "ui_vehicle": {
+    "message": "vehicle"
+  },
+  "ui_departure_time": {
+    "message": "departure time"
+  },
+  "ui_not_enough_trip_data_for_an_estimate": {
+    "message": "Not enough trip data for an estimate"
+  },
+  "ui_estimated_trip_time_exceeded": {
+    "message": "Estimated trip time exceeded"
+  },
+  "ui_local_route_and_vehicle_estimate": {
+    "message": "Local route and vehicle estimate"
+  },
+  "ui_local_estimate_geographic_distance_1_3": {
+    "message": "Local estimate · geographic distance × 1.3"
+  },
+  "ui_local_estimate_route_distance": {
+    "message": "Local estimate · route distance"
+  },
+  "ui_order_status": {
+    "message": "Order status"
+  },
+  "ui_order_progress": {
+    "message": "Order progress"
+  },
+  "ui_confirmed": {
+    "message": "Confirmed"
+  },
+  "ui_preparing": {
+    "message": "Preparing"
+  },
+  "ui_on_the_way": {
+    "message": "On the way"
+  },
+  "ui_delivered": {
+    "message": "Delivered"
+  },
+  "ui_delivery_completed": {
+    "message": "Delivery completed"
+  },
+  "ui_heading_to_the_restaurant": {
+    "message": "Heading to the restaurant"
+  },
+  "ui_at_the_restaurant": {
+    "message": "At the restaurant"
+  },
+  "ui_delivering_your_order": {
+    "message": "Delivering your order"
+  },
+  "ui_courier": {
+    "message": "Courier"
+  },
+  "ui_motorbike": {
+    "message": "Motorbike"
+  },
+  "ui_bicycle": {
+    "message": "Bicycle"
+  },
+  "ui_car": {
+    "message": "Car"
+  },
+  "ui_delivery_code": {
+    "message": "Delivery code"
+  },
+  "ui_share_when_receiving_your_order": {
+    "message": "Share when receiving your order"
+  },
+  "ui_refresh": {
+    "message": "Refresh"
+  },
+  "ui_view_order": {
+    "message": "View order"
+  },
+  "ui_check_for_updates_now": {
+    "message": "Check for updates now"
+  },
+  "ui_waiting_for_ifood": {
+    "message": "Waiting for iFood"
+  },
+  "ui_restaurant_logo": {
+    "message": "Restaurant logo"
+  },
+  "ui_courier_photo": {
+    "message": "Courier photo"
+  },
+  "ui_language": {
+    "message": "Language"
+  },
+  "order_arrives": {
+    "message": "Arrives in ~$count$ min",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "order_late": {
+    "message": "$count$ min late",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "order_route_late": {
+    "message": "$count$ min past the estimate",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "order_by": {
+    "message": "By $time$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "order_waiting": {
+    "message": "Waiting for $items$",
+    "placeholders": {
+      "items": {
+        "content": "$1"
+      }
+    }
+  },
+  "order_route": {
+    "message": "$distance$ km · $vehicle$ · left $time$",
+    "placeholders": {
+      "distance": {
+        "content": "$1"
+      },
+      "vehicle": {
+        "content": "$2"
+      },
+      "time": {
+        "content": "$3"
+      }
+    }
+  },
+  "order_number": {
+    "message": "Order $number$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "order_updated": {
+    "message": "Event $event$ · checked $time$",
+    "placeholders": {
+      "event": {
+        "content": "$1"
+      },
+      "time": {
+        "content": "$2"
+      }
+    }
+  },
+  "order_unavailable": {
+    "message": "Update unavailable ($reason$). Waiting for iFood.",
+    "placeholders": {
+      "reason": {
+        "content": "$1"
+      }
+    }
+  },
+  "pip_expand": {
+    "message": "Expand tracking"
+  },
+  "pip_collapse": {
+    "message": "Collapse tracking"
+  },
+  "language_pt": {
+    "message": "Portuguese (Brazil)"
+  },
+  "language_en": {
+    "message": "English"
+  },
+  "language_es": {
+    "message": "Spanish"
+  }
 }
