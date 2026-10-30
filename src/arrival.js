@@ -6,8 +6,8 @@ module.exports = function createArrival(state,format,t) {
     if (data.stage === 'cancelled') return { title: "ui_order_canceled", detail: "ui_see_details_on_the_order_page", source: "ui_closed" };
     if (data.stage === 'arriving') return { title: "ui_your_courier_is_here", detail: "ui_get_ready_to_receive_your_order", source: "ui_courier_at_your_address" };
     if (data.stage === 'shipping') return routeArrival(data,extras,now);
-    let arrival = data.etaAt;
-    if (!arrival && extras.eta) {
+    let arrival = 0;
+    if (extras.eta) {
       const times = [...extras.eta.matchAll(/(\d{1,2}):(\d{2})/g)];
       if (times.length) {
         const end = times[times.length - 1], date = new Date(now);
@@ -18,13 +18,10 @@ module.exports = function createArrival(state,format,t) {
       }
     }
     if (arrival) {
-      const minutes = Math.ceil((arrival - now) / 60000);
-      if (minutes <= 0) {
-        const late = Math.max(0, Math.floor((now - arrival) / 60000));
-        return { title: "ui_order_delayed", detail: late ? message('order_late',{count:late}) : "ui_the_expected_time_has_passed", source: "ui_waiting_for_an_updated_ifood_estimate", late: true };
-      }
-      const window = extras.eta?.replace(/^(?:Hoje|Amanh[aã]|\w+-feira),?\s*/i, '') || message('order_by',{time:format.time(arrival)});
-      return { title: window, detail: /amanh[aã]/i.test(extras.eta || '') ? "ui_delivery_window_tomorrow" : "ui_delivery_window", source: '', preDispatch: true };
+      // Until actual dispatch, the merchant's full delivery window is the
+      // source of truth. A single newEta must not replace it with a countdown.
+      const window = extras.eta.replace(/^(?:Hoje|Amanh[aã]|\w+-feira),?\s*/i, '');
+      return { title: window, detail: /amanh[aã]/i.test(extras.eta) ? "ui_delivery_window_tomorrow" : "ui_delivery_window", source: '', preDispatch: true, late:arrival<=now };
     }
     return { title: "ui_tracking_your_order", detail: "ui_the_estimate_appears_when_ifood_provides_it", source: "ui_not_enough_data_for_an_estimate" };
   }

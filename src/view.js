@@ -9,6 +9,7 @@ module.exports = function createView(context) {
     collapse: '<path d="M20 4l-7 7m0-6v6h6M4 20l7-7m-6 0h6v6"/>',
     store: '<path d="M3 10h18l-2-6H5l-2 6Zm1 0v10h16V10M9 20v-6h6v6M3 10c0 3 4 3 4 0 0 3 5 3 5 0 0 3 5 3 5 0 0 3 4 3 4 0"/>',
     bike: '<circle cx="5" cy="17" r="3"/><circle cx="19" cy="17" r="3"/><path d="m5 17 5-9 5 9H5m9-13h3l2 10M8 5h4"/>',
+    driver: '<circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2M9 16l3 3 3-3"/>',
     bag: '<path d="M5 7h14l1 14H4L5 7Zm4 0V5a3 3 0 0 1 6 0v2"/>',
     home: '<path d="m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7"/>',
     check: '<path d="m5 12 4 4L19 6"/>',
@@ -48,6 +49,8 @@ module.exports = function createView(context) {
   function setAvatar(doc, id, url, fallbackIcon) {
     const el = doc.getElementById(id), safe = safeImage(url);
     const alt=tx(id === 'store-avatar' ? "ui_restaurant_logo" : "ui_courier_photo");
+    el.setAttribute('role','img');
+    el.setAttribute('aria-label',alt);
     if (el.querySelector('img')) el.querySelector('img').alt=alt;
     if (el.dataset.source === safe) return;
     el.dataset.source = safe;
@@ -115,12 +118,9 @@ module.exports = function createView(context) {
         set('eta',tx(message('pip_eta_minutes',{count:eta.title.values.count})));
       } else if (eta.title?.key === 'order_by') {
         set('eta',eta.title.values.time);
-      } else if (eta.preDispatch && typeof eta.title === 'string') {
-        const times = eta.title.match(/\d{1,2}:\d{2}/g);
-        if (times?.length) set('eta',times.at(-1));
       }
-      if (eta.late) set('eta',tx('pip_eta_late'));
-      set('eta-detail',tx(eta.detail === 'ui_delivery_window_tomorrow' ? eta.detail : 'pip_estimated_arrival'));
+      if (eta.late && !eta.preDispatch) set('eta',tx('pip_eta_late'));
+      set('eta-detail',tx(eta.preDispatch ? eta.detail : 'pip_estimated_arrival'));
     }
     doc.getElementById('status-symbol').innerHTML = data.stage === 'cancelled' ? '<span aria-hidden="true">×</span>' : icon(terminal ? 'check' : ['shipping','arriving','driver'].includes(data.stage) ? 'bike' : 'bag');
     for (let n=0;n<4;n++) {
@@ -130,10 +130,11 @@ module.exports = function createView(context) {
     const progress = doc.getElementById('progress');
     progress.setAttribute('aria-valuenow',String(index)); progress.setAttribute('aria-valuetext',statusText(data));
     const driver = data.driver || state.orderDetails.driver;
+    doc.body.classList.toggle('compact-has-driver',Boolean(driver));
     doc.getElementById('driver-card').hidden = !driver;
     const driverStage = data.driverPhase || data.stage;
-    set('driver-name',driver || ''); set('driver-state',tx(terminal ? "ui_delivery_completed" : driverStage==='driver' ? "ui_heading_to_the_restaurant" : driverStage==='atStore' ? "ui_at_the_restaurant" : ['shipping','arriving'].includes(data.stage) ? "ui_delivering_your_order" : "ui_courier_assigned"));
-    set('vehicle',tx(data.modal || state.orderDetails.modal || "ui_courier")); setAvatar(doc,'driver-avatar',data.driverPhoto || state.orderDetails.driverPhoto,'bike');
+    set('driver-name',driver || ''); set('driver-state',tx(terminal ? "ui_delivery_completed" : data.driverLabel || (driverStage==='driver' ? "ui_heading_to_the_restaurant" : driverStage==='atStore' ? "ui_at_the_restaurant" : ['shipping','arriving'].includes(data.stage) ? "ui_delivering_your_order" : "ui_courier_assigned")));
+    set('vehicle',tx(data.modal || state.orderDetails.modal || "ui_courier")); setAvatar(doc,'driver-avatar',data.driverPhoto || state.orderDetails.driverPhoto,'driver');
     const code = data.code || extras.code;
     doc.getElementById('code-card').hidden = !code || data.codeValidated || terminal;
     doc.body.classList.toggle('compact-show-code',state.mode === 'compact' && data.stage === 'arriving' && Boolean(code) && !data.codeValidated);

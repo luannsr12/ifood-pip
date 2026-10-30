@@ -12,8 +12,8 @@ const MILESTONES = Object.freeze({
   DELIVERY_ARRIVED_AT_ORIGIN:{ rank: 6,stage: 'atStore',label: "ui_courier_arrived_at_the_restaurant" },
   READY_TO_PICKUP:        { rank: 6,  stage: 'atStore',label: "ui_order_ready_for_pickup" },
   SEPARATION_ENDED:       { rank: 6,  stage: 'atStore',label: "ui_order_packed" },
-  COLLECTED:              { rank: 7, stage: 'shipping',label: "ui_courier_picked_up_your_order" },
-  DELIVERY_COLLECTED:     { rank: 7, stage: 'shipping',label: "ui_courier_picked_up_your_order" },
+  COLLECTED:              { rank: 6.5,stage: 'atStore',label: "ui_courier_picked_up_your_order" },
+  DELIVERY_COLLECTED:     { rank: 6.5,stage: 'atStore',label: "ui_courier_picked_up_your_order" },
   DISPATCHED:             { rank: 7,  stage: 'shipping',label: "ui_order_out_for_delivery" },
   GOING_TO_DESTINATION:   { rank: 8,  stage: 'shipping',label: "ui_your_order_is_on_its_way" },
   DELIVERY_GOING_TO_DESTINATION:{rank: 8, stage:'shipping',label: "ui_your_order_is_on_its_way" },
@@ -30,7 +30,7 @@ const MILESTONES = Object.freeze({
 
 function blankSnapshot() {
   return { stage: 'loading', label: "ui_checking_order_updates",
-    driver: '', driverPhoto: '', modal: '', code: '', codeValidated: false,
+    driver: '', driverPhoto: '', driverLabel: '', modal: '', code: '', codeValidated: false,
     etaAt: 0, departedAt: 0, routeDistanceMeters: null, origin: null, destination: null,
     eventTime: '', checkedAt: '', issue: '' };
 }
@@ -60,7 +60,7 @@ function extractDetails(json) {
     driverPhoto: safeImage(driver.photoUrl), driver: typeof driver.name === 'string' ? driver.name.slice(0,60) : '',
     ...extractRoute(data),
     modal: normalizeModal(driver.modal || driver.vehicleType || delivery.modal || delivery.vehicleType),
-    departedAt: Date.parse(delivery.dispatchedAt || delivery.collectedAt || data.dispatchedAt || '') || 0
+    departedAt: Date.parse(delivery.dispatchedAt || data.dispatchedAt || '') || 0
   };
 }
 
@@ -132,8 +132,8 @@ function summarizeEvents(json, id) {
   let best = null;
   let name = '';
   let modal = '';
-  let driverPhoto = '', code = '', codeValidated = false, etaAt = 0, driverPhase = '', driverRank = 0;
-  let routeDistanceMeters = null, origin = null, destination = null, departedAt = 0, collectedAt = 0;
+  let driverPhoto = '', code = '', codeValidated = false, etaAt = 0, driverPhase = '', driverLabel = '', driverRank = 0;
+  let routeDistanceMeters = null, origin = null, destination = null, departedAt = 0;
   const events = json.filter(item => item?.orderId === id).slice().sort((a,b) =>
     (Date.parse(a.timestamp || a.processedAt || '') || 0) - (Date.parse(b.timestamp || b.processedAt || '') || 0));
   for (let index = 0; index < events.length; index++) {
@@ -157,11 +157,10 @@ function summarizeEvents(json, id) {
     if (route.origin) origin = route.origin;
     if (route.destination) destination = route.destination;
     const mapping = MILESTONES[value];
-    if (mapping && mapping.rank > driverRank && /^(ASSIGN_DRIVER|DELIVERY_ACCEPTED|(?:DELIVERY_)?(?:GOING_TO_ORIGIN|ARRIVED_AT_ORIGIN|COLLECTED|GOING_TO_DESTINATION|ARRIVED_AT_DESTINATION)|DISPATCHED)$/.test(value)) { driverPhase = mapping.stage; driverRank = mapping.rank; }
+    if (mapping && mapping.rank >= driverRank && /^(ASSIGN_DRIVER|DELIVERY_ACCEPTED|(?:DELIVERY_)?(?:GOING_TO_ORIGIN|ARRIVED_AT_ORIGIN|COLLECTED|GOING_TO_DESTINATION|ARRIVED_AT_DESTINATION)|DISPATCHED)$/.test(value)) { driverPhase = mapping.stage; driverLabel = mapping.label; driverRank = mapping.rank; }
     if (!mapping) continue; // Ignora NUPAY, CHAT, HANDSHAKE_CODE, outros metadados internos.
     const timestamp = Date.parse(item.timestamp || item.processedAt || '') || 0;
     if (timestamp > 0 && /^(DISPATCHED|(?:DELIVERY_)?GOING_TO_DESTINATION)$/.test(value)) departedAt = departedAt ? Math.min(departedAt,timestamp) : timestamp;
-    if (timestamp > 0 && /^(?:DELIVERY_)?COLLECTED$/.test(value)) collectedAt = collectedAt ? Math.min(collectedAt,timestamp) : timestamp;
     const candidate = { ...mapping, time: timestamp, index };
     // Nunca regride para uma etapa anterior por causa de eventos auxiliares/tardios.
     if (!best || candidate.rank > best.rank ||
@@ -175,7 +174,7 @@ function summarizeEvents(json, id) {
   return {
     stage: waitingForDriver ? 'driver' : best?.stage || 'unknown',
     label: waitingForDriver ? "ui_order_ready_courier_heading_to_the_store" : best?.label || "ui_waiting_for_an_order_update",
-    driver: name, driverPhase, driverPhoto, modal, code, codeValidated, etaAt, departedAt:departedAt || collectedAt, routeDistanceMeters, origin, destination, eventTime,
+    driver: name, driverPhase, driverLabel, driverPhoto, modal, code, codeValidated, etaAt, departedAt, routeDistanceMeters, origin, destination, eventTime,
     checkedAt: Date.now(),
     issue: ''
   };

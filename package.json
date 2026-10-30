@@ -6,6 +6,7 @@
     "build": "node scripts/build.cjs",
     "test": "node --test tests/*.test.cjs",
     "test:navigation": "node tests/navigation.cjs",
+    "test:events": "node tests/events.cjs",
     "check": "node scripts/build.cjs --check && node --check content.js"
   }
 }
