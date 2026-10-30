@@ -1,48 +1,43 @@
 # Validação da versão 0.0.9 — 30/10/2026
 
-## Pacote 0.0.9
+## Build e pacote
 
-`npm run build`, os 29 testes de módulo e `npm run check` passaram na preparação desta versão. O ZIP foi extraído e os hashes dos nove arquivos foram comparados com os arquivos de produção locais. O manifest extraído indica 0.0.9, idioma padrão `pt_BR` e nenhuma permissão adicional; o script mantém o polling em 60.000 ms.
+- `npm run build`, `npm test` e `npm run check`: passaram, com 29 testes de módulo.
+- O ZIP foi extraído e os hashes dos nove arquivos foram comparados com os arquivos de produção locais. Manifest e projeto indicam 0.0.9; o pacote mantém o idioma padrão `pt_BR`, nenhuma permissão adicional e polling de 60.000 ms.
+- O conteúdo é restrito ao manifest, script compilado, três ícones, três catálogos e licença. Testes, capturas, simulador, dependências e `store-assets` não entram no ZIP.
+- Tamanho e SHA-256 estão em [NOTES-0.0.9.md](../releases/NOTES-0.0.9.md). Os pacotes anteriores permanecem intactos.
 
-As suítes de navegação, eventos e recuperação foram executadas carregando diretamente a extensão extraída do ZIP no Edge. Passaram os 30 cenários/60 estados, os três idiomas, a exibição do código no expandido durante a entrega e a pausa/retomada após falhas, sem erros JavaScript. Os resultados ficam somente em `test-results/release-0.0.9/`, ignorado pelo Git. Tamanho e SHA-256 do pacote estão em [NOTES-0.0.9.md](../releases/NOTES-0.0.9.md).
+## Interface no Edge
 
-## Executado
+As suítes de navegador carregaram a extensão extraída do ZIP pelo manifest em um perfil temporário do Edge. Foram usados pedidos e respostas sintéticos.
 
-- Versão 0.0.9: 29 testes de módulo. O compacto solicita 390 × 142 px desde a abertura. A altura permanece fixa conforme a escolha do usuário: sem entregador, status/loja/rodapé distribuem a altura e não existe uma linha reservada abaixo da barra. A previsão permanece ao lado do status. Loja e número ficam na mesma linha, com a célula do número em 92 px. Após a atribuição, a linha inferior aparece com quatro células estáveis: nome/foto, veículo e distância em três colunas iguais de aproximadamente 95 px, e código em 74 px. Sem código ou distância, suas células ficam vazias; as demais não crescem. A distância usa marcador SVG e quilômetros com uma casa decimal, ou até três em distâncias curtas para preservar a precisão. Os testes incluem ausência de km e 199,9 km, nos três idiomas. O nome compacto usa primeiro nome e inicial do segundo; nomes excedentes são cortados por caracteres com três pontos. Os testes medem dimensões idênticas nos três idiomas, contemplam moto/bicicleta/carro e entrada de eventos com `navigator.userActivation.isActive === false`, mantendo altura e posição da janela. A API do Chromium exige ativação de usuário para redimensionar; a altura fixa evita depender disso. Galeria: `test-results/equal-cells-final/index.html`. Esses ajustes integram o pacote 0.0.9.
+- 30 cenários de eventos nos dois modos, totalizando 60 estados, além de nomes longos, campos ausentes, veículos e limites de estimativa.
+- Português, inglês e espanhol: mesmas dimensões da grade e das etapas, sem chaves de tradução visíveis ou rolagem.
+- Expandido: faixa da loja à direita do status durante a entrega, uma única linha de contexto sob a estimativa, sem a grade inferior e sem a linha adicional sobre a origem da previsão. Antes da saída, a faixa permanece como previsão principal.
+- Código visível nos dois modos durante transporte/chegada quando disponível; oculto antes da saída, após validação e após conclusão. No expandido, foram conferidos o rótulo, os dígitos e a separação do rodapé.
+- Etapas do expandido com fonte de 12 px e ícones de 16 px acima dos nomes, centralizados sob suas barras. Nomes/status usam 14 px e a previsão principal, 24 px. Textos secundários visíveis têm pelo menos 11 px.
+- Recolhido: 390 × 142 px solicitados, status de 20 px, somente barras de progresso e a mesma composição aprovada. Nome/foto, veículo e distância compartilham três colunas iguais; o código mantém 74 px. A mudança visual compartilhada desta etapa é o verde das barras.
+- Nome compacto com primeiro nome e inicial do segundo; truncamento por caracteres quando necessário. Foram conferidos “Matheus A.”, nomes maiores, distância ausente e distâncias curtas e longas.
+- Oito transições em uma janela expandida mantida aberta, nos três idiomas, sem novos cliques para redimensionar. Rodapé, entregador, código e faixa de horários permaneceram visíveis.
+- Alternância repetida na mesma PiP, sem requisições extras por troca de modo ou idioma e sem deriva das coordenadas medidas. A API mantém o controle da colocação exata da janela.
+- Inspeção das capturas de percurso, chegada, preparação e dos dois modos: realizada. As barras usam o verde revisado e a chave do expandido usa o vermelho dos demais ícones.
 
-- Legibilidade revisada no expandido: nomes/status em 14 px, detalhes em 11–12 px, valores em 13 px e previsão em 24 px. No expandido, os nomes das quatro etapas usam 12 px, com SVGs de 16 px fixos acima dos textos. No recolhido, nomes e ícones das etapas ficam ocultos; somente as barras permanecem visíveis, com descrição acessível do progresso. A linha removida não reserva espaço na grade. No expandido, barras e nomes compartilham quatro colunas de dimensões idênticas; ícone e nome ficam empilhados, com a centralização do texto abaixo da barra verificada em até 1 px. O card foi mantido. As medidas das colunas permanecem exatamente iguais ao alternar português, inglês e espanhol. A comparação visual atual está em `test-results/equal-cells-final/languages.html`. O teste verifica tamanho mínimo, visibilidade dos ícones e encaixe das etapas nos três idiomas; também percorre oito transições sem redimensionar a janela, sem cortar o rodapé.
+A pasta `test-results/` foi esvaziada antes desta rodada. A galeria atual fica em `test-results/events/index.html`; comparações de idiomas e nomes ficam em `languages.html` e `stress.html`. Capturas e relatórios permanecem locais e são ignorados pelo Git.
 
-- Regressão de navegação SPA: página inicial → acompanhamento sem F5, atualização apenas da URL, voltar/avançar, `replaceState`, substituição do body, ausência de botões/interceptadores duplicados, acesso direto e reload passaram no Edge com injeção real pelo manifest.
-- O ciclo `pagehide`/`pageshow` com `persisted: true` foi simulado duas vezes no teste de navegação para conferir a reativação dos listeners sem reinstalar fetch. Isso não significa que o navegador utilizou seu BFCache real durante o teste.
-- O teste completo da PiP também começa na página inicial e navega internamente para o pedido antes de capturar a primeira requisição. Não usa recarregamento nem injeção manual de script.
+## Navegação e consultas
 
-- `npm run build`, `npm test` (29 testes), `npm run check` e `git diff --check`: passaram.
-- `npm run test:events`: 30 cenários de eventos, cada um em completo e compacto; 60 capturas reais de PiP, sem erros JavaScript. Inclui os 27 marcos reconhecidos, geração/validação de código e atualização de ETA. Faixa completa nos estados anteriores à saída, retirada sem contagem, estimativa ancorada na saída, fallback SVG de loja/entregador e ausência de scroll/sobreposição foram verificados. Galeria: `test-results/events/index.html`.
-- Testes de tempo verificam início na saída, decremento após um/dois minutos e preservação da âncora em novos resumos/eventos. Janela vencida continua visível antes da saída e ausência de dados não gera uma estimativa inventada.
-- Edge instalado, em perfil temporário, com carregamento real da extensão pelo manifest: passou, sem erros JavaScript.
-- Abertura/fechamento da Document PiP, alternâncias, reabertura recolhida preservando o idioma e tratamento de `resizeTo` recusado: passaram no teste completo.
-- O compacto solicita 390 × 142 px e o expandido mantém 350 px de largura. O completo calcula a altura pela previsão, histórico recebido, entregador, código e avisos presentes. As medidas da moldura nativa são reutilizadas na alternância; o navegador pode arredondar as medidas em alguns pixels na escala do Windows.
-- A revisão removeu o card externo e recompôs o compacto em grade: marca, avatar, status com ícone e previsão lado a lado, quatro barras de progresso e controles. Nomes e ícones das etapas ficam somente no expandido. O código de entrega só pode aparecer após a saída, quando disponível, e fica oculto após validação ou conclusão. No compacto, a linha do código acompanha a presença do entregador. Testes verificam ausência de rolagem horizontal/vertical, visibilidade do rodapé e borda/margem externas nulas nos dois modos.
-- Em nove alternâncias medidas no Edge na revisão final, screenX e screenY permaneceram em x=1114/y=490. A largura interna alternou entre 350 e 390 px, sem deriva progressiva, deslocamento para o centro ou reabertura da janela. A borda direita acompanha a largura de cada modo; a API mantém a colocação escolhida pelo navegador e não permite forçar novas coordenadas por `moveTo()`/`moveBy()`.
-- Mudanças para inglês e espanhol com atualização imediata, português padrão, idioma salvo e ausência de novas requisições ao alternar os modos: passaram.
-- A regressão no Edge passou com polling real de 60 s e transporte sintético: a PiP consultou em segundo plano, o contador diminuiu após um minuto e não houve novas consultas durante 62 s após o fechamento. O teste de agendamento também confirma o intervalo de 60.000 ms. Registro local: `test-results/polling-60s-validation.log`.
-- HTTP 429, entrega concluída, eventos vazios e nome longo: passaram no navegador. Não houve rolagem horizontal no compacto.
-- Inspeção visual das capturas de preparação, percurso, erro, nome longo, conclusão e modo completo: realizada.
-- Testes de módulo verificaram separadamente fetch e XHR, cópia dos headers, credentials, exclusão de chamadas simultâneas, timers, backoff, código de entrega validado, progressão sem regressão e estimativas ancoradas na saída.
-- `node tests/recovery.cjs`: passou no Edge com PiP real, relógio controlado e transporte sintético. Uma falha manual e três callbacks automáticos produziram quatro falhas consecutivas (HTTP, rede e JSON inválido); não restou timer e o botão de atualização foi desabilitado. A mensagem de pausa permaneceu visível e sem cortes nos dois modos. Uma resposta válida da página retomou o agendamento; `COMPLETED` encerrou consultas automáticas/manuais e exibiu “Pedido concluído”. Uma preferência antiga de modo completo não impediu a abertura recolhida. Capturas: `test-results/recovery-*.png`.
+- Navegação interna da página inicial até o pedido sem F5, alteração apenas da URL, voltar/avançar, `replaceState`, substituição do body, acesso direto e reload: passaram, sem botões ou interceptadores duplicados.
+- A simulação de `pagehide`/`pageshow` com `persisted: true` verificou a reativação dos listeners. Ela não comprova uso do BFCache real pelo navegador.
+- Respostas de detalhes recebidas separadamente dos eventos atualizaram nome e veículo do entregador sem mudança de status.
+- Quatro falhas consecutivas, incluindo HTTP, rede e JSON inválido, interromperam consultas automáticas/manuais. Uma resposta válida da página retomou o agendamento; conclusão encerrou as consultas.
+- Polling real de 60 segundos com a PiP em primeiro plano e a aba original em segundo plano, decremento da estimativa e 62 segundos sem novas consultas após fechar a PiP: verificados na suíte completa.
+- Reabertura recolhida com idioma preservado, erro HTTP 429 e recusa de redimensionamento: passaram.
+- Testes de módulo também cobrem fetch/XHR, headers e credentials, exclusão de consultas simultâneas, regras de visibilidade, progressão dos eventos e estimativas ancoradas na saída.
+
+O registro do teste completo fica em `test-results/browser.log`; a conferência do ZIP, em `test-results/release-0.0.9/package-validation.json`.
 
 ## Limites
 
-Na evolução local do simulador em tempo real, a interface ganhou regras explícitas para impedir informações antecipadas. Foram verificados: início sem código/entregador, geração do código somente na saída, confirmação somente após o evento correspondente e payloads progressivos do cenário. Um teste adicional percorreu oito transições com a mesma janela completa curta, sem redimensionamento por cliques, verificando rodapé, código e entregador sem cortes. O layout completo usa a área disponível para mostrar histórico e trajeto; se novos dados chegam à janela curta, prioriza os detalhes mais relevantes.
+O transporte da PiP é substituído por respostas em memória nos testes. Interface, Request, timers e callbacks pertencem à extensão real. Não foram validados uma sessão autenticada ou entrega real no iFood, rede real com a aba minimizada, Chrome, versões antigas dos navegadores ou todos os sistemas operacionais.
 
-O teste interativo iniciado em 30/10/2026 às 11:11 (America/Sao_Paulo) confirmou no navegador a passagem para `CONFIRMED`, a faixa `11:31 – 11:41`, código e entregador ocultos e polling pelo contexto PiP. Isso confirma o início do teste; não representa observação manual de todos os 23 minutos e 30 segundos em tempo real.
-
-O site e os pedidos eram sintéticos. Na PiP, o teste substitui exclusivamente o transporte fetch por respostas em memória; os headers são sintéticos. Não foi validada uma sessão autenticada ou uma entrega real no iFood, a rede real com aba minimizada, Chrome, versões antigas do Edge/Chrome ou todos os sistemas operacionais.
-
-As tentativas iniciais de interceptar HTTP da PiP com Playwright não responderam nesse alvo auxiliar. O teste de navegador documenta a substituição do transporte para não confundir essa limitação com uma validação da API real do iFood.
-
-As capturas ficam em `test-results/`, ignorado pelo Git. `product-compact.png` e `product-complete.png` mostram o mesmo pedido em português nos dois modos. São capturas da PiP real, com dados sintéticos. O pacote 0.0.9 inclui esta revisão. Os ZIPs anteriores permanecem intactos como registro das respectivas distribuições. O empacotamento local não cria uma publicação na loja.
-
-As células de veículo e distância centralizam o conjunto ícone + texto em uma linha. O teste mede centro e alinhamento vertical, largura igual das três primeiras células e o nome completo “Matheus A.” nos três idiomas. O modo expandido conserva 350 px de largura.
-
-Revisão final: reproduzida e corrigida a ausência de atualização do entregador quando os detalhes chegam separadamente dos eventos. O teste de recuperação confere duas respostas de detalhes consecutivas, atualizando nome e veículo sem novos eventos. Distâncias curtas positivas agora mantêm precisão em quilômetros e não viram “0km”; há verificações com 12 m e valor inferior a 1 m. As suítes de eventos, recuperação, navegação e navegador completo foram reexecutadas. O relatório dos 30 eventos/60 estados está em `test-results/final-audit/events/report.json`; o registro do polling real e das alternâncias está em `test-results/final-audit/browser.log`. Esses arquivos são locais e não integram os commits.
+O empacotamento e a publicação no GitHub não representam publicação ou aprovação na Chrome Web Store.

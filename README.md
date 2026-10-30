@@ -36,7 +36,7 @@ Acompanhar uma entrega pelo navegador não deveria exigir que você fique preso 
 - **Previsão por etapa:** antes da saída, mantém a faixa completa da loja (por exemplo, `13:30 – 14:00`) nos dois modos. A contagem `~8 min` começa no horário da saída para entrega; atribuição do entregador e retirada na loja não iniciam o relógio.
 - **Privacidade por padrão:** não tem servidor do desenvolvedor, anúncios nem ferramentas de análise; os dados do pedido não são enviados a um serviço externo do projeto.
 - **Três idiomas:** português, inglês e espanhol, com seleção diretamente na mini janela.
-- **Dois modos:** a PiP sempre abre recolhida. O controle de expansão mostra o acompanhamento com horários dos eventos, faixa prometida, trajeto e detalhes do entregador disponíveis naquele momento.
+- **Dois modos:** a PiP sempre abre recolhida. O controle de expansão mostra as etapas com nomes e ícones, a faixa prometida, um resumo do percurso, dados do entregador e código de entrega, conforme disponíveis.
 - **Compacto reorganizado:** status em destaque, loja e número do pedido na mesma linha e barras de progresso sem legendas. Quando há entregador, nome/foto, veículo, distância e código ocupam células estáveis; os campos ausentes não deslocam os demais.
 - **Leitura mais clara:** fontes maiores nos dois modos e etapas do expandido com ícones acima dos nomes, centralizados sob suas barras. Os textos foram revisados em português, inglês e espanhol.
 - **Consultas com limite:** quatro falhas consecutivas pausam as consultas da extensão e exibem uma orientação discreta para abrir o pedido no iFood e atualizar a página. Uma resposta válida do site libera novamente as consultas. Pedidos concluídos ou cancelados encerram o polling.

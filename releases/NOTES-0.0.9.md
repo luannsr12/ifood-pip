@@ -6,7 +6,9 @@ A versão 0.0.9 aprimora a organização e a legibilidade da mini janela, com um
 - **Dados do entregador em uma linha própria:** foto/nome, veículo e distância usam três células de largura igual; o código de entrega ocupa uma quarta célula de largura fixa. Veículo e distância mantêm ícone e texto centralizados na mesma linha. Campos ausentes preservam o espaço das respectivas células.
 - **Identificação mais clara:** o nome do entregador é apresentado como primeiro nome e inicial do segundo no recolhido. Nomes longos de lojas e entregadores recebem reticências por caracteres, preservando o nome completo no expandido e na descrição ao passar o cursor.
 - **Tipografia maior e consistente:** todos os status do recolhido compartilham a mesma regra de fonte. O expandido apresenta informações secundárias mais legíveis e mantém o card de progresso, com ícones maiores acima dos nomes, centralizados sob cada barra.
-- **Código de entrega nos dois modos:** o expandido mantém a seção identificada com rótulo e dígitos. A exibição respeita a saída para entrega, a disponibilidade do código e sua validação, assim como no recolhido.
+- **Código de entrega nos dois modos:** o expandido mantém a seção identificada com rótulo, chave no vermelho da interface e dígitos, com mais espaço antes do rodapé. A exibição respeita a saída para entrega, a disponibilidade do código e sua validação, assim como no recolhido.
+- **Expandido mais objetivo:** a faixa de horários fica à direita do status no card de progresso durante a entrega. Abaixo da estimativa, uma única linha reúne distância, veículo e horário de saída quando disponíveis. Informações duplicadas e a grade inferior foram removidas.
+- **Progresso com melhor presença visual:** as barras dos dois modos usam um verde mais vivo, sem efeitos de brilho.
 - **Textos revisados nos três idiomas:** português, inglês e espanhol mantêm a mesma grade e dimensões. No recolhido, a chegada usa “Chegou por aí” e a estimativa em rota usa “Chega em ~ 10 minutos”, conforme o tempo disponível.
 
 ## Previsões e estabilidade
@@ -31,7 +33,7 @@ Para instalação manual no Chrome ou Edge, extraia o ZIP, abra a página de ext
 
 O pacote contém somente nove arquivos de produção: manifest, script compilado, três ícones, três catálogos de tradução e licença. Não inclui testes, capturas, `test-results`, `store-assets`, simulador ou dependências de desenvolvimento.
 
-**Arquivo:** `ifood-pip-0.0.9-chrome-web-store.zip` · **Tamanho:** 43.433 bytes · **SHA-256:** `ea77f7618d6a6c2414fd8fbee787a28800b48954d890143811961f0a1aaeea10`.
+**Arquivo:** `ifood-pip-0.0.9-chrome-web-store.zip` · **Tamanho:** 43.130 bytes · **SHA-256:** `a64ca335211ef57b518cbb9639cc4462f374861aacb10f45dbf99a223d2fe5d3`.
 
 ## Validação
 
