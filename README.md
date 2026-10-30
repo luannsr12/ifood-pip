@@ -33,8 +33,10 @@ Acompanhar uma entrega pelo navegador não deveria exigir que você fique preso 
 - **Atualizações automáticas:** reaproveita as consultas autenticadas que o próprio site do iFood faz para verificar os eventos do pedido enquanto a mini janela está aberta.
 - **Informações em um só lugar:** mostra etapas do pedido e, quando disponíveis, dados da loja, do entregador, do veículo e da entrega.
 - **Previsão de chegada:** apresenta a faixa de entrega informada pelo iFood e, após a saída para entrega, pode calcular uma **estimativa local aproximada** usando os dados disponíveis.
+- **Previsão por etapa:** antes da saída, mantém a faixa completa da loja (por exemplo, `13:30 – 14:00`) nos dois modos. A contagem `~8 min` começa no horário da saída para entrega; atribuição do entregador e retirada na loja não iniciam o relógio.
 - **Privacidade por padrão:** não tem servidor do desenvolvedor, anúncios nem ferramentas de análise; os dados do pedido não são enviados a um serviço externo do projeto.
 - **Três idiomas:** português, inglês e espanhol, com seleção diretamente na mini janela.
+- **Dois modos:** acompanhamento completo ou compacto, com status e chegada em destaque. O controle no canto superior alterna os modos e salva a escolha para a próxima abertura.
 
 ## Prévia
 
@@ -57,7 +59,7 @@ Acompanhar uma entrega pelo navegador não deveria exigir que você fique preso 
 
 ## Como funciona
 
-A extensão é executada **somente nas páginas de pedido** em `https://www.ifood.com.br/pedido/*`.
+A extensão é inicializada em `https://www.ifood.com.br/*` para acompanhar a navegação interna do site. O botão e a mini janela ficam disponíveis **somente nas páginas de acompanhamento de pedido**. Assim, entrar pelo início do iFood e abrir um pedido não exige atualizar a página.
 
 Ela observa as requisições feitas pela própria página para obter os eventos do pedido. Com a mini janela aberta, pode repetir essas consultas diretamente ao iFood, utilizando a sessão já autenticada no navegador. A interface é atualizada conforme os dados recebidos.
 
@@ -72,7 +74,7 @@ O iFood PiP foi pensado para funcionar sem coleta de dados pelo desenvolvedor:
 - Não solicita login, senha ou token fora da autenticação normal do iFood.
 - Mantém as informações do pedido e os dados de autenticação observados **em memória** durante o uso.
 - Comunica-se com os serviços do próprio iFood e com os endereços de imagens necessários para exibir o acompanhamento; **não envia dados do pedido para servidores do desenvolvedor**.
-- Armazena localmente apenas a preferência de idioma (`ifood-pip-language`).
+- Armazena localmente as preferências de idioma (`ifood-pip-language`) e visualização (`ifood-pip-mode`).
 - Não inclui rastreadores, anúncios ou telemetria do projeto.
 
 Leia também a [Política de Privacidade](PRIVACY.md).
@@ -81,7 +83,9 @@ Leia também a [Política de Privacidade](PRIVACY.md).
 
 Sugestões, correções e melhorias são bem-vindas. Você pode abrir uma *issue* para relatar um problema ou enviar um *pull request* com uma proposta de alteração.
 
-Para testar modificações, carregue a pasta do projeto como extensão descompactada no navegador. Não é necessário Node.js, servidor local nem etapa de compilação.
+Para usar o código deste repositório, carregue a pasta como extensão descompactada. O `content.js` gerado está incluído; não é necessário instalar dependências para usar a extensão.
+
+Para desenvolver, use Node.js 20+ e execute `npm run build`, `npm test` e `npm run check`. Não há pacotes a instalar. Edite `src/`, os estilos e `_locales/`, gere novamente o pacote, recarregue a extensão e a aba do pedido. Consulte [ARCHITECTURE.md](ARCHITECTURE.md) para organização, traduções e testes de navegador.
 
 ## Licença
 
