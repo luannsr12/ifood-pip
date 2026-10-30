@@ -15,6 +15,7 @@ O manifest executa `content.js` no mundo `MAIN`, em `document_start`, nas págin
 | `src/arrival.js` | Regras de previsão e estimativa de percurso |
 | `src/view.js`, `src/pip.css` | DOM e apresentação dos modos completo e compacto |
 | `src/preferences.js` | Preferências locais validadas e tolerância a storage indisponível |
+| `src/visibility.js` | Regras de visibilidade de cada informação conforme os eventos |
 | `src/i18n.js`, `src/format.js` | Mensagens, interpolação e formatação com Intl |
 
 Cada módulo recebe suas dependências explicitamente. Existe um estado de sessão privado, criado pela inicialização; regras de eventos não acessam esse estado. Não há objetos adicionados ao escopo global, mensagens entre mundos ou dependências de frameworks.
@@ -54,17 +55,33 @@ Os estados do entregador preservam os rótulos de atribuição, aceite, deslocam
 
 ## Modos e ciclo de vida
 
-O primeiro uso mantém o modo completo. Ambos solicitam 350 px de largura: o compacto pede 164 px de altura e o completo, 310 px. A largura compartilhada mantém a ancoragem horizontal durante a alternância. O compacto tem uma grade própria: identidade e marca no topo, status e previsão lado a lado, barra com quatro etapas e ícones, controles na base. O código substitui a previsão quando o entregador chega. Detalhes do percurso, entregador e mensagens extensas ficam no completo; erros no compacto têm indicador curto e descrição acessível. Não há card externo nem rolagem nos dois modos. A preferência é independente do pedido e salva em `ifood-pip-mode`.
+A PiP sempre abre no modo recolhido, sem restaurar o modo da abertura anterior. Ambos solicitam 350 px de largura; o compacto mantém 164 px de altura. O completo calcula a altura conforme a previsão, os detalhes e os avisos presentes. A largura compartilhada mantém a ancoragem horizontal durante a alternância. O compacto usa uma grade própria: identidade e marca no topo, status e previsão lado a lado, quatro etapas com ícones e controles na base. Durante a entrega, código e previsão compartilham a coluna direita sem aumentar a janela. O completo acrescenta faixa prometida, horários dos eventos recebidos, distância do trajeto e detalhes do entregador. Mensagens de falha são pequenas e visíveis nos dois modos. Não há card externo nem rolagem.
+
+A presença de um campo na API ou no DOM não basta para exibi-lo. A política em `visibility.js` libera identidade/previsão após a identificação do estado do pedido, dados do entregador após atribuição ou etapa de entrega, trajeto apenas na saída e código somente durante transporte/chegada, nunca após validação ou conclusão. Criação e recebimento não destacam a etapa “Confirmado” antes do evento de confirmação.
+
+O tamanho é calculado ao alternar a PiP. Se novas informações chegam enquanto uma janela completa curta permanece aberta, entregador e código compartilham uma linha e a grade de detalhes prioriza a faixa prometida e o trajeto ou evento mais recente. A expansão com mais altura mostra o histórico disponível. O teste de eventos percorre oito transições mantendo a altura inicial sem cliques artificiais de redimensionamento.
 
 A alternância atualiza o mesmo DOM e chama `resizeTo()` diretamente no clique. As medidas externas são obtidas no primeiro clique de alternância, depois que a moldura nativa está visível: medir logo na resolução de `requestWindow()` pode retornar dimensões transitórias. A largura externa é reutilizada para evitar deriva por arredondamento em escalas fracionárias do Windows. O teste verifica coordenadas de tela ao alternar repetidamente. A extensão não fecha/reabre a PiP para alternar e permite que o navegador preserve sua colocação anterior (`preferInitialWindowPlacement: false`).
 
 A API bloqueia `moveTo()` e `moveBy()`: a posição inicial e o encaixe exato no canto pertencem ao navegador/usuário. Não existe promessa de reposicionar programaticamente a janela em outros navegadores. A API de abertura existe desde Chrome 116; redimensionamento por gesto está disponível desde Chrome 121. Referência: [Document Picture-in-Picture](https://developer.chrome.com/docs/web-platform/document-picture-in-picture) e [restrições de posicionamento](https://wicg.github.io/document-picture-in-picture/#positioning).
 
-Polling continua a cada 20 s, com timers e fetch na PiP. Atualizações recentes do site adiam a consulta independente; HTTP 429 usa 60 s. Trocar idioma ou modo não agenda timers, descarta dados nem repete requisições. Fechar a PiP limpa o timer de consulta e o relógio de renderização. Sair da página desconecta o observador e limpa os timers de navegação/DOM. Não há alteração dos endpoints ou dos headers capturados.
+Polling automático a cada 60 s, com timers e fetch na PiP. Atualizações recentes do site adiam a consulta independente; HTTP 429 também usa 60 s. A atualização manual pode consultar imediatamente. Trocar idioma ou modo não agenda timers, descarta dados nem repete requisições. Fechar a PiP limpa o timer de consulta e o relógio de renderização. Sair da página desconecta o observador e limpa os timers de navegação/DOM. Não há alteração dos endpoints ou dos headers capturados.
+
+`pollFailures` conta falhas consecutivas, incluindo HTTP, rede e formato inválido. Uma consulta bem-sucedida zera a contagem. Na quarta falha, nenhum novo timer é agendado e o botão Atualizar é desabilitado; fechar e reabrir a PiP não contorna essa pausa. Uma resposta válida observada na página zera as falhas e permite retomar. Conclusão ou cancelamento, vindos dos eventos ou do status explícito na página, marcam `pollCompleted` e encerram consultas automáticas e manuais para o pedido. A navegação para outro pedido limpa esses estados. As requisições realizadas pelo próprio site não são bloqueadas.
 
 Mudanças de URL no mesmo documento são detectadas pelo evento `navigation.currententrychange`, sem sobrescrever `history.pushState` ou `replaceState`, e por `popstate`. O observador do DOM e a checagem periódica existente permanecem como apoio. Ao sair da rota, o botão é ocultado e a PiP é fechada; voltar não reinstala os interceptadores de tráfego. Uma restauração do documento por BFCache reativa apenas o acompanhamento de navegação/DOM, depois da limpeza de `pagehide`.
 
 ## Testes e depuração
+
+### Simulação interativa em tempo real
+
+`npm run simulate:realtime` abre um perfil isolado do Edge com a extensão real e uma página de pedido fictício. Requer Playwright instalado (ou disponível em `NODE_PATH`). Todo o tráfego desse contexto é interceptado; não usa conta, pagamento ou API real do iFood. A PiP usa o mesmo adaptador de transporte sintético dos testes, preservando seus timers e interface reais.
+
+Ao iniciar, o pedido recebe um UUID e o horário atual. A janela da loja é de T+20 a T+30 minutos. Timers Node.js em `tests/simulation/scenario.cjs` emitem confirmação em 30 s, preparo em 2 min, atribuição em 8 min, chegada à loja em 12 min, retirada em 14 min, saída em 15 min, chegada ao destino em 22 min e conclusão em 23 min e 30 s. A rota fictícia de 2,2 km foi escolhida para uma estimativa aproximada de 8 minutos após a saída.
+
+Os payloads também são progressivos: não incluem entregador antes da atribuição, trajeto antes da saída nem código antes do evento de geração na saída. O código é validado aos 23 minutos e deixa de aparecer. O cenário não pré-carrega informações futuras na interface.
+
+O painel mostra relógio, agenda e eventos realizados, permite reiniciar o pedido ou encerrar a simulação e oferece pausa das consultas da aba para observar o polling independente da PiP. Fechar só a PiP não reinicia o cenário; fechar a aba encerra o ambiente. Logs, estado e capturas iniciais ficam em `test-results/realtime/`, ignorado pelo Git. Nenhum arquivo do simulador entra no ZIP de produção.
 
 `npm test` cobre contratos dos catálogos, preferências, fallback, interpolação, normalização, progressão sem regressão, código validado, estimativas e agendamento. Os dados são sintéticos.
 

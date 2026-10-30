@@ -1,6 +1,6 @@
 # Política de Privacidade — iFood PiP
 
-**Versão da extensão:** 0.0.7
+**Versão da extensão:** 0.0.8
 
 **Última atualização:** 30 de outubro de 2026
 
@@ -8,7 +8,7 @@ O **iFood PiP** é uma extensão independente que permite acompanhar pedidos do 
 
 A privacidade faz parte do funcionamento do projeto: **a extensão não possui servidores próprios, não inclui anúncios ou ferramentas de análise e não envia informações dos pedidos ao desenvolvedor**.
 
-Esta política descreve o comportamento da versão 0.0.7.
+Esta política descreve o comportamento da versão 0.0.8.
 
 ## 1. Onde a extensão funciona
 
@@ -35,7 +35,7 @@ Esses dados são utilizados para exibir o acompanhamento e, quando aplicável, c
 
 ## 3. Comunicação com serviços externos
 
-A extensão observa as consultas realizadas pela página do iFood. Enquanto a mini janela está aberta, pode repetir consultas aos **serviços do próprio iFood**, usando a sessão autenticada existente, para manter as informações atualizadas.
+A extensão observa as consultas realizadas pela página do iFood. Enquanto a mini janela está aberta, pode repetir consultas aos **serviços do próprio iFood**, usando a sessão autenticada existente, com intervalo automático de **60 segundos**. Atualizações recentes da página podem adiar consultas redundantes; o usuário também pode solicitar uma atualização manual.
 
 As imagens do estabelecimento ou do entregador podem ser carregadas dos endereços HTTPS fornecidos pelo iFood, inclusive de serviços de distribuição de imagens (CDNs). Essas requisições seguem o funcionamento normal do navegador e estão sujeitas às práticas dos respectivos serviços.
 
@@ -43,17 +43,21 @@ A extensão **não envia pedidos, identificadores, códigos de entrega, coordena
 
 Não há serviço de telemetria, publicidade ou análise de uso integrado ao projeto.
 
+O simulador de desenvolvimento usa dados fictícios e um perfil isolado do navegador, sem se comunicar com a API real do iFood. Logs e capturas locais desse teste ficam na pasta `test-results/` do ambiente de desenvolvimento. O simulador e seus artefatos não integram o pacote distribuído da extensão.
+
 ## 4. Armazenamento e retenção
 
 Os dados do acompanhamento e as informações necessárias para repetir as consultas do iFood permanecem **temporariamente na memória da página**.
 
 Não são gravados pela extensão em banco de dados, arquivo ou armazenamento remoto do desenvolvedor. O fechamento ou recarregamento da página encerra esse estado temporário.
 
-As preferências persistidas intencionalmente pela extensão são o idioma selecionado (**português, inglês ou espanhol**), na chave `ifood-pip-language`, e o modo de visualização (**completo ou compacto**), na chave `ifood-pip-mode`. Ambas são armazenadas no `localStorage` do site do iFood, independentemente dos dados do pedido.
+A preferência persistida intencionalmente pela extensão é o idioma selecionado (**português, inglês ou espanhol**), na chave `ifood-pip-language`, no `localStorage` do site do iFood. A PiP sempre abre recolhida. A chave antiga `ifood-pip-mode`, caso exista de uma versão anterior, não é mais lida nem gravada.
 
 Essas preferências podem permanecer salvas após o fechamento da janela e podem ser apagadas ao limpar os dados do site no navegador.
 
 Ao fechar a mini janela, a extensão interrompe suas consultas periódicas independentes. A página original do iFood, se continuar aberta, pode seguir realizando suas próprias requisições normalmente.
+
+Quatro falhas consecutivas também pausam as consultas independentes, incluindo o botão de atualização. A PiP orienta abrir o pedido no iFood e atualizar a página; uma resposta válida observada no site permite retomar. Ao concluir ou cancelar o pedido, as consultas da extensão são encerradas para esse pedido durante a sessão da página.
 
 ## 5. Compartilhamento e comercialização
 
@@ -67,7 +71,7 @@ O uso do próprio site do iFood continua sujeito aos termos e à política de pr
 
 Você pode fechar a mini janela a qualquer momento, interrompendo as atualizações independentes da extensão.
 
-Também pode desativar ou desinstalar o iFood PiP nas configurações de extensões do navegador e apagar as preferências de idioma e visualização limpando os dados do site `www.ifood.com.br`.
+Também pode desativar ou desinstalar o iFood PiP nas configurações de extensões do navegador e apagar a preferência de idioma limpando os dados do site `www.ifood.com.br`.
 
 ## 7. Alterações nesta política
 
