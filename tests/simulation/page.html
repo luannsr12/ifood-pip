@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simulação local — iFood PiP</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f5f3;color:#343434;font:14px/1.5 'Segoe UI',Arial,sans-serif}header{background:white;border-bottom:1px solid #e6e3de;padding:18px 32px;display:flex;align-items:center;justify-content:space-between}header strong{font-size:18px;color:#d71929}header span{font-size:12px;color:#73706a}main{max-width:1120px;margin:32px auto;padding:0 24px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:24px}article,aside{background:white;border:1px solid #e8e5e0;border-radius:12px;padding:24px}h1{font-size:26px;line-height:1.25;margin:0 0 10px}h2{font-size:16px;margin:0 0 14px}p{color:#6e6a65}small{color:#73706a}.eyebrow{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#8b8176;margin-bottom:12px}.identity{display:flex;align-items:center;gap:12px;margin-bottom:24px}.shop{width:44px;height:44px;border-radius:9px;display:grid;place-items:center;background:#fff0ee;color:#c93525}.shop svg{width:26px;height:26px}.identity strong{display:block;font-size:16px}.identity small{display:block}#status{font-size:20px;font-weight:600;margin:10px 0}.eta{margin:24px 0;padding:18px 0;border-top:1px solid #eee;border-bottom:1px solid #eee}.eta small{display:block}.eta strong{font-size:31px;letter-spacing:-.7px}.facts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}.fact small,.fact strong{display:block}.fact strong{font-size:14px;font-weight:600}.notice{font-size:12px;background:#faf7f1;padding:12px;border-radius:6px;color:#756a59;margin-top:24px}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}button{font:600 12px 'Segoe UI',sans-serif;border:1px solid #dedbd6;background:white;color:#514d47;padding:10px 14px;border-radius:6px;cursor:pointer}button.primary{background:#df1c2b;color:white;border-color:#df1c2b}button:focus-visible{outline:2px solid #d71929;outline-offset:3px}button:disabled{opacity:.5;cursor:default}.clock{font-size:24px;font-variant-numeric:tabular-nums;margin-bottom:6px}.elapsed{font-size:12px;color:#777}.plan{list-style:none;padding:0;margin:20px 0 0}.plan li{display:grid;grid-template-columns:18px 1fr auto;gap:7px;padding:7px 0;align-items:center;font-size:12px;color:#8a867e}.plan li:before{content:'';width:6px;height:6px;background:#d9d6d0;border-radius:50%}.plan li.done{color:#4e6f54}.plan li.done:before{background:#4d8b5a}.plan li.current{font-weight:700;color:#333}.plan time{font-variant-numeric:tabular-nums;color:#8a867e;font-weight:400}.code{letter-spacing:7px;font-size:21px!important}.footnote{margin-top:22px;font-size:11px;color:#8a867e}#transport{font-size:11px;color:#8a867e;margin-top:15px}@media(max-width:800px){main{grid-template-columns:1fr}header{padding:16px 24px}}
+</style>
+<header><strong>iFood PiP <span>· simulação local</span></strong><span>Dados fictícios · Sem pedidos ou pagamentos reais</span></header>
+<main><article>
+<div class="eyebrow">Acompanhamento de um pedido de teste</div>
+<div class="identity"><div class="shop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10h18l-2-6H5l-2 6Zm1 0v10h16V10M9 20v-6h6v6"/></svg></div><div><strong data-testid="merchant-name">Cozinha da Praça</strong><small>Pedido #4421</small></div></div>
+<h1>Seu almoço, em acompanhamento.</h1><div id="status">Pronto para iniciar o teste</div>
+<div class="eta"><small>Previsão de entrega</small><strong id="window">—</strong><small id="date-label"></small></div>
+<div class="facts"><div class="fact"><small>Pedido iniciado</small><strong id="started">—</strong></div><div class="fact" id="courier-fact" hidden><small>Entregador</small><strong id="courier"></strong></div><div class="fact"><small>Pedido de teste</small><strong>Prato executivo · 1 unidade</strong></div><div class="fact" id="code-fact" hidden><small>Código de entrega</small><strong class="code" id="code"></strong></div></div>
+<div class="notice">Os eventos seguem o relógio real. A previsão em minutos só aparece na mini janela após a saída para entrega. Você pode recolher, expandir, fechar e reabrir a PiP durante todo o teste.</div>
+<div class="controls"><button class="primary" id="start">Iniciar novo pedido de teste</button><button id="traffic">Pausar consultas da aba</button><button id="stop">Encerrar simulação</button></div><div id="transport">Aguardando início.</div>
+<div class="footnote">Ambiente isolado. Nenhuma requisição desta janela é enviada ao serviço real do iFood. Feche a aba para encerrar o ambiente.</div>
+</article><aside><div class="eyebrow">Relógio da simulação</div><div class="clock" id="clock"></div><div class="elapsed" id="elapsed">Aguardando início</div><h2 style="margin-top:22px">Agenda dos eventos</h2><ol class="plan" id="plan"></ol><p class="footnote">A faixa começa 20 minutos após o início. A conclusão está prevista para aproximadamente 23 minutos e 30 segundos.</p></aside></main>
+<script>
+const labels=__LABELS__;
+let current=null,traffic=true,fetching=false;
+const time=value=>new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
+async function pollOrder(){if(!traffic||!current?.orderId||fetching)return;fetching=true;try{await fetch(`/site-api/v1/customers/me/orders/${current.orderId}/events`,{headers:{'x-ifood-simulation':'local-test'}});await fetch(`/site-api/v1/customers/me/orders/${current.orderId}`,{headers:{'x-ifood-simulation':'local-test'}});document.getElementById('transport').textContent='Última consulta da aba: '+time(Date.now())+' · API de teste';}finally{fetching=false}}
+function render(state){
+  current=state;if(!state.startedAt)return;
+  document.getElementById('status').textContent=labels[state.currentLabel]?.message||'Consultando eventos do pedido…';
+  document.getElementById('window').textContent=time(state.windowStart)+' – '+time(state.windowEnd);
+  document.getElementById('started').textContent=time(state.startedAt);
+  const courier=state.details.delivery.driver?.name||'';
+  document.getElementById('courier').textContent=courier;document.getElementById('courier-fact').hidden=!courier;
+  const generated=state.events.find(event=>event.value==='DELIVERY_DROP_CODE_REQUESTED');
+  const validated=state.events.some(event=>event.value==='DELIVERY_DROP_CODE_VALIDATION_SUCCESS');
+  const completed=state.currentEvent==='DELIVERED';
+  document.getElementById('code-fact').hidden=!generated||validated||completed;
+  document.getElementById('code').textContent=generated&&!validated&&!completed?generated.metadata.HANDSHAKE_CODE:'';
+  const active=state.plan.filter(step=>step.done).at(-1)?.value;
+  document.getElementById('plan').replaceChildren(...state.plan.map(step=>{const li=document.createElement('li');li.className=(step.done?'done':'')+(step.value===active?' current':'');const text=document.createElement('span');text.textContent=step.label;const at=document.createElement('time');at.textContent=time(step.at);li.append(text,at);return li}));
+  const elapsed=Math.floor((Date.now()-state.startedAt)/1000);document.getElementById('elapsed').textContent=`${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')} decorridos · ${completed?'Concluído':state.running?'Tempo real':'Encerrado'}`;
+}
+document.getElementById('start').addEventListener('click',async()=>{const response=await fetch('/__simulation/start',{method:'POST'});render(await response.json());history.pushState({},'',`/pedido/${current.orderId}/acompanhar`);await pollOrder()});
+document.getElementById('stop').addEventListener('click',async()=>{await fetch('/__simulation/stop',{method:'POST'});window.documentPictureInPicture?.window?.close();render(await(await fetch('/__simulation/state')).json())});
+document.getElementById('traffic').addEventListener('click',event=>{traffic=!traffic;event.target.textContent=traffic?'Pausar consultas da aba':'Retomar consultas da aba';document.getElementById('transport').textContent=traffic?'Consultas da aba ativas.':'Consultas da aba pausadas. A PiP continua consultando pelo próprio timer.';if(traffic)pollOrder()});
+setInterval(()=>{document.getElementById('clock').textContent=time(Date.now());fetch('/__simulation/state').then(res=>res.json()).then(state=>{const changed=current?.orderId!==state.orderId||current?.events.length!==state.events.length;render(state);if(changed&&traffic)pollOrder()}).catch(()=>{})},1000);
+setInterval(()=>pollOrder().catch(()=>{}),30000);
+fetch('/__simulation/state').then(res=>res.json()).then(state=>{render(state);if(state.orderId)pollOrder()});
+</script></html>
