@@ -19,8 +19,15 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
   });
   const errors=[]; context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));page.on('pageerror',e=>errors.push(e.message));
   try {
-    await page.goto(`https://www.ifood.com.br/pedido/${id}/acompanhar`);
+    await page.goto('https://www.ifood.com.br/');
+    assert.equal(await page.locator('#ifood-pip-companion-root').count(),0);
+    await page.evaluate(id=>{
+      window.__navigationToken='same-document';
+      history.pushState({},'',`/pedido/${id}/acompanhar`);
+    },id);
+    // Confirm actual manifest injection, not an addScriptTag substitute.
     await page.locator('#ifood-pip-companion-root button').waitFor({timeout:1500});
+    assert.equal(await page.evaluate(()=>window.__navigationToken),'same-document');
     await page.evaluate(id=>fetch(`/site-api/v1/customers/me/orders/${id}/events`,{headers:{'x-test-session':'synthetic'}}),id);
     await page.evaluate(()=>window.__testRequests=[]);
     const popup=context.waitForEvent('page');

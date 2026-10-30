@@ -159,6 +159,11 @@ function start() {
 
   function initUi() {
     checkNavigation();
+    const onNavigation = () => {checkNavigation(); renderPip();};
+    // The script is present before entering an order. Observe same-document
+    // URL changes even when the site's router has not mutated the DOM yet.
+    window.navigation?.addEventListener('currententrychange',onNavigation);
+    window.addEventListener('popstate',onNavigation);
     const observer = new MutationObserver(() => {
       // Reflete também avanços no status visível que ainda não chegaram em /events.
       if (state.pip && !state.pip.closed) scheduleDomRefresh();
@@ -171,9 +176,15 @@ function start() {
       clearInterval(navigationTimer);
       clearTimeout(state.domTimer);
       observer.disconnect();
+      window.navigation?.removeEventListener('currententrychange',onNavigation);
+      window.removeEventListener('popstate',onNavigation);
       if (state.pip && !state.pip.closed) state.pip.close();
     },{once:true});
   }
+  window.addEventListener('pageshow',event => {
+    // A document restored from the back/forward cache does not fire DOM ready.
+    if (event.persisted) initUi();
+  });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',initUi,{once:true});
   else initUi();
 }

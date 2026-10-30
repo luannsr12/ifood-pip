@@ -74,7 +74,7 @@ test('polling schedules only on PiP, deduplicates, backs off 429 and stops clean
 test('MV3 package stays permission-free, in MAIN at document_start, and bundle is current',()=>{
   const manifest=require('../manifest.json');assert.equal(manifest.manifest_version,3);assert.deepEqual(manifest.permissions,[]);
   assert.equal(manifest.content_scripts[0].world,'MAIN');assert.equal(manifest.content_scripts[0].run_at,'document_start');
-  assert.deepEqual(manifest.content_scripts[0].matches,['https://www.ifood.com.br/pedido/*']);
+  assert.deepEqual(manifest.content_scripts[0].matches,['https://www.ifood.com.br/*']);
   assert.equal(manifest.default_locale,'pt_BR');assert.equal(fs.readFileSync('content.js','utf8'),require('../scripts/build.cjs')());
 });
 
