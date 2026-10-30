@@ -48,6 +48,8 @@ Acompanhar uma entrega pelo navegador não deveria exigir que você fique preso 
 
 ### Pelo código-fonte (Edge ou Chrome)
 
+O pacote pronto da versão atual está em [Releases](https://github.com/luannsr12/ifood-pip/releases/latest). Em **Assets**, baixe `ifood-pip-0.0.7-chrome-web-store.zip`, que contém somente os arquivos da extensão. O mesmo pacote está versionado em [releases/](releases/). Os links automáticos **Source code** incluem o repositório completo.
+
 1. Baixe este repositório como ZIP e extraia os arquivos, ou clone o repositório.
 2. Acesse `edge://extensions` no Microsoft Edge ou `chrome://extensions` no Google Chrome.
 3. Ative o **Modo do desenvolvedor**.
