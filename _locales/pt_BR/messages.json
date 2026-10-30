@@ -1,8 +1,21 @@
 {
-  "pip_eta_late": { "message": "Atrasado" },
-  "pip_eta_minutes": { "message": "~$count$ min", "placeholders": { "count": { "content": "$1" } } },
-  "pip_estimated_arrival": { "message": "Chegada estimada" },
-  "ui_update_failed": { "message": "Falha na atualização" },
+  "pip_eta_late": {
+    "message": "Atrasado"
+  },
+  "pip_eta_minutes": {
+    "message": "~ $count$ minutos",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pip_estimated_arrival": {
+    "message": "Chegada estimada"
+  },
+  "ui_update_failed": {
+    "message": "Falha na atualização"
+  },
   "extensionName": {
     "message": "iFood PiP — Pedido em Mini Janela"
   },
@@ -356,5 +369,100 @@
   },
   "language_es": {
     "message": "Espanhol"
+  },
+  "pip_status_order_created": {
+    "message": "Pedido criado"
+  },
+  "pip_status_order_placed": {
+    "message": "Pedido recebido"
+  },
+  "pip_status_order_confirmed": {
+    "message": "Pedido confirmado"
+  },
+  "pip_status_the_restaurant_is_preparing_your_order": {
+    "message": "Preparando o pedido"
+  },
+  "pip_status_your_order_is_being_packed": {
+    "message": "Separando o pedido"
+  },
+  "pip_status_courier_assigned": {
+    "message": "Entregador definido"
+  },
+  "pip_status_courier_accepted_the_delivery": {
+    "message": "Entrega aceita"
+  },
+  "pip_status_courier_heading_to_the_restaurant": {
+    "message": "Indo até a loja"
+  },
+  "pip_status_courier_arrived_at_the_restaurant": {
+    "message": "Entregador na loja"
+  },
+  "pip_status_order_ready_for_pickup": {
+    "message": "Pronto para retirada"
+  },
+  "pip_status_order_packed": {
+    "message": "Pedido separado"
+  },
+  "pip_status_courier_picked_up_your_order": {
+    "message": "Pedido retirado"
+  },
+  "pip_status_order_out_for_delivery": {
+    "message": "Saiu para entrega"
+  },
+  "pip_status_your_order_is_on_its_way": {
+    "message": "A caminho de você"
+  },
+  "pip_status_courier_arrived_at_your_address": {
+    "message": "Chegou por aí"
+  },
+  "pip_status_order_delivered": {
+    "message": "Pedido concluído"
+  },
+  "pip_status_order_completed": {
+    "message": "Pedido concluído"
+  },
+  "pip_status_order_canceled": {
+    "message": "Pedido cancelado"
+  },
+  "pip_status_order_ready_courier_heading_to_the_store": {
+    "message": "Pronto para retirada"
+  },
+  "pip_status_checking_order_updates": {
+    "message": "Consultando pedido"
+  },
+  "pip_status_waiting_for_an_order_update": {
+    "message": "Aguardando novidades"
+  },
+  "pip_eta_minutes_one": {
+    "message": "~ $count$ minuto",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pip_checked_at": {
+    "message": "Evento: $time$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "pip_route_arrival": {
+    "message": "Chega em ~ $count$ minutos",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pip_route_arrival_one": {
+    "message": "Chega em ~ $count$ minuto",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

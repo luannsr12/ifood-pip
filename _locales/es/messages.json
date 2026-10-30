@@ -1,8 +1,21 @@
 {
-  "pip_eta_late": { "message": "Retrasado" },
-  "pip_eta_minutes": { "message": "~$count$ min", "placeholders": { "count": { "content": "$1" } } },
-  "pip_estimated_arrival": { "message": "Llegada estimada" },
-  "ui_update_failed": { "message": "Error al actualizar" },
+  "pip_eta_late": {
+    "message": "Retrasado"
+  },
+  "pip_eta_minutes": {
+    "message": "~ $count$ minutos",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pip_estimated_arrival": {
+    "message": "Llegada estimada"
+  },
+  "ui_update_failed": {
+    "message": "Error al actualizar"
+  },
   "extensionName": {
     "message": "iFood PiP — Pedido en Miniventana"
   },
@@ -356,5 +369,100 @@
   },
   "language_es": {
     "message": "Español"
+  },
+  "pip_status_order_created": {
+    "message": "Pedido creado"
+  },
+  "pip_status_order_placed": {
+    "message": "Pedido recibido"
+  },
+  "pip_status_order_confirmed": {
+    "message": "Pedido confirmado"
+  },
+  "pip_status_the_restaurant_is_preparing_your_order": {
+    "message": "Preparando pedido"
+  },
+  "pip_status_your_order_is_being_packed": {
+    "message": "Preparando pedido"
+  },
+  "pip_status_courier_assigned": {
+    "message": "Con repartidor"
+  },
+  "pip_status_courier_accepted_the_delivery": {
+    "message": "Entrega aceptada"
+  },
+  "pip_status_courier_heading_to_the_restaurant": {
+    "message": "Camino a la tienda"
+  },
+  "pip_status_courier_arrived_at_the_restaurant": {
+    "message": "En la tienda"
+  },
+  "pip_status_order_ready_for_pickup": {
+    "message": "Listo para recoger"
+  },
+  "pip_status_order_packed": {
+    "message": "Pedido preparado"
+  },
+  "pip_status_courier_picked_up_your_order": {
+    "message": "Pedido recogido"
+  },
+  "pip_status_order_out_for_delivery": {
+    "message": "En reparto"
+  },
+  "pip_status_your_order_is_on_its_way": {
+    "message": "En camino"
+  },
+  "pip_status_courier_arrived_at_your_address": {
+    "message": "Ya llegó"
+  },
+  "pip_status_order_delivered": {
+    "message": "Pedido completado"
+  },
+  "pip_status_order_completed": {
+    "message": "Pedido completado"
+  },
+  "pip_status_order_canceled": {
+    "message": "Pedido cancelado"
+  },
+  "pip_status_order_ready_courier_heading_to_the_store": {
+    "message": "Listo para recoger"
+  },
+  "pip_status_checking_order_updates": {
+    "message": "Consultando pedido"
+  },
+  "pip_status_waiting_for_an_order_update": {
+    "message": "Esperando novedades"
+  },
+  "pip_eta_minutes_one": {
+    "message": "~ $count$ minuto",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pip_checked_at": {
+    "message": "Evento: $time$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "pip_route_arrival": {
+    "message": "Llega en ~ $count$ minutos",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pip_route_arrival_one": {
+    "message": "Llega en ~ $count$ minuto",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -56,6 +56,11 @@ function start() {
     state.mode = state.mode === 'full' ? 'compact' : 'full';
     state.previousSignature = '';
     renderPip();
+    const height=state.mode==='compact'?view.compactHeight():view.fullHeight();
+    resizePip(height);
+  }
+
+  function resizePip(height) {
     // Called synchronously from the user's click: resize consumes activation.
     // Older browsers may ignore it; scrollable layouts remain usable.
     try {
@@ -65,13 +70,11 @@ function start() {
         // measure only at the first toggle, after it is visible.
         state.pipOuterWidth = win.outerWidth;
         state.pipFrameHeight = Math.max(0,win.outerHeight-win.innerHeight);
+        state.pipFrameWidth = Math.max(0,win.outerWidth-win.innerWidth);
       }
-      // Keep the user's horizontal position and width. Changing both axes
-      // lets the browser clamp/reposition a corner window on every toggle.
-      // Reuse the initial outer width rather than accumulating resizeBy(0)
-      // rounding at fractional Windows display scales.
-      const height = state.mode === 'compact' ? 164 : view.fullHeight();
-      win.resizeTo(state.pipOuterWidth, height + state.pipFrameHeight);
+      // Use each mode's content width plus the measured native frame,
+      // avoiding accumulated rounding at fractional Windows display scales.
+      win.resizeTo((state.mode==='compact'?390:350)+(state.pipFrameWidth || 0), height + state.pipFrameHeight);
     } catch { /* Window dimensions are ultimately controlled by the browser. */ }
   }
 
@@ -96,8 +99,8 @@ function start() {
       const initialSnapshot=state.capturedSummary?.orderId === requestedOrderId ? state.capturedSummary.summary : blankSnapshot();
       // Abrir ANTES de fazer fetch/await para preservar o gesto do clique.
       const opened = await window.documentPictureInPicture.requestWindow({
-        width:350,
-        height:state.mode === 'compact' ? 164 : view.fullHeight(initialSnapshot),
+        width:390,
+        height:state.mode === 'compact' ? view.compactHeight(initialSnapshot) : view.fullHeight(initialSnapshot),
         preferInitialWindowPlacement:false, disallowReturnToOpener:true
       });
       if (getOrderId() !== requestedOrderId) {opened.close(); return;}
@@ -108,6 +111,13 @@ function start() {
       state.snapshot = state.capturedSummary?.orderId === state.activeOrderId ? state.capturedSummary.summary : blankSnapshot();
       state.previousSignature = '';
       buildPipDocument(opened);
+      opened.requestAnimationFrame(()=>opened.requestAnimationFrame(()=>{
+        if(state.pip===opened && !state.pipOuterWidth) {
+          state.pipOuterWidth=opened.outerWidth;
+          state.pipFrameHeight=Math.max(0,opened.outerHeight-opened.innerHeight);
+          state.pipFrameWidth=Math.max(0,opened.outerWidth-opened.innerWidth);
+        }
+      }));
       opened.addEventListener('resize',renderPip);
       opened.addEventListener('pagehide',() => {
         opened.clearInterval(state.clockTimer);

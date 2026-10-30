@@ -29,155 +29,131 @@
 .driver>div{min-width:0}.driver strong{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.code{flex-wrap:wrap}
 .updated{overflow-wrap:anywhere}.language{min-height:24px}.action{min-height:24px}
 
-.step-icon{display:none}
+.step-icon{display:inline-flex}
 
 /* Compact composition: identity / status + arrival / timeline / utilities.
    The journey's children join this grid; no nested panel or global card. */
-[data-mode="compact"] .shell{padding:8px;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 128px;grid-template-rows:28px minmax(38px,1fr) 4px 16px 22px;gap:5px 10px}
-[data-mode="compact"] .merchant{grid-area:1/1/2/3;gap:7px;min-height:0;padding-right:28px}
-[data-mode="compact"] .merchant>div:nth-child(2){overflow:hidden}
-[data-mode="compact"] .merchant strong{font-size:12px;line-height:16px;font-weight:600}
-[data-mode="compact"] .avatar{width:27px;height:27px;border-radius:5px}
-[data-mode="compact"] #order-number{font-size:9px;line-height:11px;margin:0}
-[data-mode="compact"] .ifood-mark{display:block;width:23px;height:23px;margin:0 2px 0 0}
-[data-mode="compact"] .mode-toggle{right:4px;top:7px;width:26px;height:26px}
-[data-mode="compact"] .journey{display:contents}
-[data-mode="compact"] .status-head{grid-area:2/1;gap:7px;margin:0;align-self:center;min-width:0}
-[data-mode="compact"] .status-head>div:last-child{min-width:0}
-[data-mode="compact"] .status-head h1{font-size:12px;line-height:16px;font-weight:600;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-[data-mode="compact"] .status-symbol{width:27px;height:27px;border-radius:6px;background:#fff0f1}
-[data-mode="compact"] .status-symbol svg{width:18px;height:18px}
-[data-mode="compact"]:not(.compact-has-eta) .status-head{grid-column:1/-1}
-[data-mode="compact"] .hero{grid-area:2/2;align-self:center;min-width:0;padding:0;text-align:right}
-[data-mode="compact"]:not(.compact-has-eta) .hero,[data-mode="compact"].compact-show-code .hero{display:none}
-[data-mode="compact"] .eta-clock,[data-mode="compact"] .eta-source,[data-mode="compact"] .driver{display:none}
-[data-mode="compact"].compact-has-driver .status-head{align-self:start}
-[data-mode="compact"].compact-has-driver .status-head h1{-webkit-line-clamp:2;line-height:15px}
-[data-mode="compact"].compact-has-driver .driver{display:flex;grid-area:2/1;align-self:end;gap:5px;min-width:0}
-[data-mode="compact"] .driver .avatar{width:18px;height:18px}
-[data-mode="compact"] .driver .avatar svg{width:15px;height:15px}
-[data-mode="compact"] .driver strong{font-size:10px;line-height:15px;font-weight:400;color:#717171}
-[data-mode="compact"] .driver .micro,[data-mode="compact"] .vehicle{display:none}
-[data-mode="compact"] .eta{font-size:23px;line-height:27px;letter-spacing:-.6px;margin:0;font-variant-numeric:tabular-nums;white-space:nowrap}
-[data-mode="compact"].pre-dispatch .eta{font-size:17px;line-height:23px;letter-spacing:-.3px}
-[data-mode="compact"] .eta-detail{font-size:10px;line-height:14px;margin:0;color:#717171;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-[data-mode="compact"] .segments{grid-area:3/1/4/3;gap:5px}
-[data-mode="compact"] .segment{height:4px}
-[data-mode="compact"] .steps{grid-area:4/1/5/3;margin:0;font-size:9px;line-height:16px;color:#767676}
-[data-mode="compact"] .step{display:flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap}
-[data-mode="compact"] .step>span{flex:none}
-[data-mode="compact"] .step-icon{display:inline-flex;color:inherit}
-[data-mode="compact"] .step-icon svg{width:11px;height:11px}
-[data-mode="compact"] .steps .current{color:#3e3e3e}
-[data-mode="compact"] .steps .done{color:#3e8459}
-[data-mode="compact"] .code{display:none}
-[data-mode="compact"].compact-show-code .code{grid-area:2/2;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0;border:0;gap:3px}
-[data-mode="compact"] .code-label{font-size:9px;color:#717171;font-weight:400;gap:4px}
-[data-mode="compact"] .code small{display:none}
-[data-mode="compact"] .digits{gap:3px}
-[data-mode="compact"] .digit{width:18px;height:23px;font-size:16px;background:#f5f5f5}
-[data-mode="compact"] .notice{display:none}
-[data-mode="compact"] .footer{grid-area:5/1/6/3;margin:0;min-height:22px;gap:6px}
-[data-mode="compact"] .footer-meta{min-width:0;overflow:hidden;gap:3px}
-[data-mode="compact"] .updated{font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-[data-mode="compact"] .actions{gap:7px;flex:none}
-[data-mode="compact"] .action{font-size:9px;min-height:22px}
-[data-mode="compact"] .action svg{width:12px;height:12px}
-[data-mode="compact"] .language{font-size:9px;min-height:22px;width:32px}
-[data-mode="compact"].has-issue .updated{color:#9b662c;font-weight:600}
-[data-mode="compact"].has-issue .updated:before{content:'!';display:inline-grid;place-items:center;width:10px;height:10px;border:1px solid currentColor;border-radius:50%;margin-right:3px;font-size:8px}
+/* One headline rule for every compact event, from creation to completion. */
 
-/* A sparse order opens at its actual content size. If more details arrive
-   without a resize gesture, share a row instead of clipping or adding scroll. */
-@media(max-height:240px){
-  [data-mode="full"] .shell{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:min-content;align-content:start;padding:6px;gap:4px 8px}
-  [data-mode="full"] .merchant{grid-area:1/1/2/3}
-  [data-mode="full"] .hero{grid-area:2/1/3/3;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 7px;padding-left:20px}
-  [data-mode="full"] .eta{font-size:23px;line-height:25px;margin:0}
-  [data-mode="full"] .eta-detail{font-size:9px;line-height:12px}
-  [data-mode="full"] .eta-source{width:100%;margin:0;font-size:7px;line-height:9px}
-  [data-mode="full"] .journey{grid-area:3/1/4/3;padding:5px 6px}
-  [data-mode="full"] .status-head{margin-bottom:4px}
-  [data-mode="full"] .steps{margin-top:3px}
-  [data-mode="full"] .driver{grid-area:4/1;align-self:center;min-width:0;gap:5px}
-  [data-mode="full"] .driver .avatar{width:23px;height:23px}
-  [data-mode="full"] .driver .vehicle{display:none}
-  [data-mode="full"] .driver .micro{font-size:8px;line-height:10px}
-  [data-mode="full"] .code{grid-area:4/2;border:0;padding:0;flex-direction:column;gap:2px;align-items:flex-end}
-  [data-mode="full"] .code-label{font-size:8px;line-height:10px}
-  [data-mode="full"] .code small{display:none}
-  [data-mode="full"] .digit{height:20px;width:18px;font-size:14px}
-  [data-mode="full"] .notice{grid-area:5/1/6/3;font-size:8px;line-height:10px;padding:3px 5px}
-  [data-mode="full"] .footer{grid-area:6/1/7/3;min-height:20px}
-  [data-mode="full"] .language,[data-mode="full"] .action{min-height:20px}
-  [data-mode="full"].has-issue .shell{gap:2px 8px}
-}
-@media(max-height:190px){
-  [data-mode="full"] .shell{padding:5px 6px;gap:1px 7px}
-  [data-mode="full"] .eta-source{display:none}
-  [data-mode="full"] .notice{display:none}
-  [data-mode="full"].has-issue .updated{color:#9b662c;font-weight:600}
-}
-
-/* Expanded mode adds factual order history, the promised window and route
-   details. Rows only exist after their corresponding events are received. */
+/* Expanded type scale: primary 24/16/14 px, secondary 12/11 px. */
 [data-mode="full"] .shell{display:flex;flex-direction:column;padding:8px;gap:5px}
+[data-mode="full"] .merchant strong{font-size:14px;line-height:18px}
+[data-mode="full"] .micro{font-size:11px;line-height:14px}
+[data-mode="full"] .merchant .avatar{width:30px;height:30px}
 [data-mode="full"] .hero{display:block;padding-left:22px}
-[data-mode="full"] .eta{font-size:24px;line-height:27px;margin:0 0 3px}
-[data-mode="full"] .eta-detail{font-size:10px;line-height:13px}
-[data-mode="full"] .eta-source{display:block;font-size:8px;line-height:10px}
+[data-mode="full"] .eta{font-size:24px;line-height:28px;margin:0 0 3px}
+[data-mode="full"] .eta-detail{font-size:12px;line-height:16px;color:#666}
+[data-mode="full"] .eta-source{font-size:11px;line-height:14px;color:#717171;margin-top:2px}
 [data-mode="full"] .eta-source:empty{display:none}
 [data-mode="full"] .journey{padding:7px}
-[data-mode="full"] .merchant .avatar{height:28px;width:28px}
 [data-mode="full"] .status-head{margin-bottom:6px}
-[data-mode="full"] .steps{margin-top:4px;line-height:12px}
-[data-mode="full"] .footer,[data-mode="full"] .language,[data-mode="full"] .action{min-height:24px}
-[data-mode="full"] .driver{display:flex;min-height:28px}
-[data-mode="full"] .driver .vehicle{display:flex}
-[data-mode="full"] .code{display:flex;flex-direction:row;align-items:center;border-top:1px solid #eee;border-bottom:1px solid #eee;padding:5px 0;gap:8px}
-[data-mode="full"] .code small{display:block}
-[data-mode="full"] .digit{width:22px;height:25px;font-size:16px}
-.order-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 12px;margin:0;border-top:1px solid #eee;padding:7px 0 0}
-.order-details>div{min-width:0}.order-details dt{font-size:9px;line-height:12px;color:#717171}.order-details dd{margin:0;font-size:11px;line-height:14px;font-weight:600;font-variant-numeric:tabular-nums}
-[data-mode="full"] .notice{display:block;font-size:9px;line-height:12px;padding:4px 6px}
-[data-mode="compact"] .order-details{display:none}
+[data-mode="full"] .status-head h1{font-size:14px;line-height:20px}
+[data-mode="full"] .status-symbol{width:24px;height:24px}
+[data-mode="full"] .driver{min-height:34px}
+[data-mode="full"] .driver strong{font-size:14px;line-height:18px}
+[data-mode="full"] .vehicle{font-size:11px}
+[data-mode="full"] .code{flex-direction:row;align-items:center;padding:5px 0;gap:8px;border-top:1px solid #eee;border-bottom:1px solid #eee}
+[data-mode="full"] .code-label{font-size:12px;line-height:16px}
+[data-mode="full"] .code small{display:block;font-size:11px;line-height:14px}
+[data-mode="full"] .digit{width:22px;height:28px;font-size:18px}
+.order-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;margin:0;border-top:1px solid #eee;padding:7px 0 0}
+.order-details>div{min-width:0}.order-details dt{font-size:11px;line-height:14px;color:#717171}.order-details dd{margin:1px 0 0;font-size:13px;line-height:18px;font-weight:600;font-variant-numeric:tabular-nums}
+[data-mode="full"] .notice{display:block;font-size:11px;line-height:14px;padding:4px 6px}
+[data-mode="full"] .footer{min-height:28px;gap:5px}
+[data-mode="full"] .footer-meta{gap:4px}
+[data-mode="full"] .updated{font-size:11px;line-height:14px;max-width:140px;overflow-wrap:normal}
+[data-mode="full"] .language{font-size:11px;min-height:28px}
+[data-mode="full"] .action{font-size:11px;min-height:28px}
+[data-mode="full"] .actions{gap:6px}
+/* New events can arrive without a resize gesture. Keep the same readable
+   type sizes, sharing rows and prioritizing the latest details when needed. */
+[data-mode="full"].constrained .shell{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:min-content;align-content:start;padding:6px;gap:2px 8px}
+[data-mode="full"].constrained .merchant{grid-area:1/1/2/3}
+[data-mode="full"].constrained .hero{grid-area:2/1/3/3;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 7px}
+[data-mode="full"].constrained .eta{margin:0}
+[data-mode="full"].constrained .eta-source{display:none}
+[data-mode="full"].constrained .journey{grid-area:3/1/4/3;padding:5px 6px}
+[data-mode="full"].constrained .status-head{margin-bottom:4px}
+[data-mode="full"].constrained .driver{grid-area:4/1;min-width:0;min-height:34px}
+[data-mode="full"].constrained .vehicle{display:none}
+[data-mode="full"].constrained .code{grid-area:4/2;border:0;padding:0;flex-direction:column;gap:2px;align-items:flex-end}
+[data-mode="full"].constrained .code small{display:none}
+[data-mode="full"].constrained .digit{height:22px;width:18px;font-size:16px}
+[data-mode="full"].constrained .order-details{grid-area:5/1/6/3;padding-top:4px}
+[data-mode="full"].constrained .order-details>div:nth-child(n+3){display:none}
+[data-mode="full"].constrained .notice{grid-area:6/1/7/3}
+[data-mode="full"].constrained .footer{grid-area:7/1/8/3}
+/* Compact status has its own full-width headline, with utilities below it. */
+.code-label svg{color:#777;stroke-width:1.6}
 
-/* Keep arrival and delivery code together in the existing right-hand rail. */
-[data-mode="compact"].compact-show-code .hero{display:block;align-self:start}
-[data-mode="compact"].compact-show-code:not(.compact-estimate) .hero{display:none}
-[data-mode="compact"].compact-show-code:not(.compact-estimate) .code{align-self:center}
-[data-mode="compact"].compact-show-code .eta{font-size:21px;line-height:25px}
-[data-mode="compact"].compact-show-code .eta-detail{display:none}
-[data-mode="compact"].compact-show-code .code{align-self:end;flex-direction:row;gap:5px;justify-content:flex-end}
-[data-mode="compact"].compact-show-code .code-label>span{display:none}
-[data-mode="compact"].compact-show-code .code-label svg{width:12px;height:12px}
-[data-mode="compact"].compact-show-code .digits{gap:2px}
-[data-mode="compact"].compact-show-code .digit{width:17px;height:20px;font-size:14px}
-[data-mode="compact"].compact-show-code .code{min-width:0}
-[data-mode="compact"].has-issue .shell{padding:6px 8px;gap:3px 10px;grid-template-rows:28px minmax(46px,1fr) 4px 14px 22px 20px}
-[data-mode="compact"].has-issue .steps{line-height:14px}
-[data-mode="compact"].has-issue .notice{display:block;grid-area:5/1/6/3;font-size:9px;line-height:11px;padding:0 3px;background:#fff8ed;color:#866033;align-self:center}
-[data-mode="compact"].has-issue .footer{grid-row:6;min-height:20px}
-[data-mode="compact"].has-issue .action,[data-mode="compact"].has-issue .language{min-height:20px}
+/* Compact: status/time, merchant/order, bars, optional fixed courier cells. */
+[data-mode="compact"] .shell{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 74px;grid-template-rows:40px 34px 4px 32px;gap:5px;padding:8px;min-height:0;align-content:start}
+[data-mode="compact"] .journey{display:contents}
+[data-mode="compact"] .status-head{grid-area:1/1/2/5;margin:0;gap:5px;min-width:0;align-self:center}
+[data-mode="compact"] .status-head>div:last-child{min-width:0}
+[data-mode="compact"] .status-head h1{font-size:20px;line-height:26px;white-space:nowrap;margin:0;font-weight:600}
+[data-mode="compact"] .status-symbol{width:24px;height:24px;border-radius:5px}
+[data-mode="compact"] .status-symbol svg{width:17px;height:17px}
+[data-mode="compact"] .hero{grid-area:1/1/2/5;align-self:center;padding:0;text-align:right;min-width:0;justify-self:end}
+[data-mode="compact"] .eta{font-size:16px;line-height:22px;letter-spacing:-.3px;white-space:nowrap;margin:0;font-variant-numeric:tabular-nums}
+[data-mode="compact"] .eta-clock,[data-mode="compact"] .eta-detail,[data-mode="compact"] .eta-source{display:none}
+[data-mode="compact"]:not(.compact-estimate) .hero,[data-mode="compact"].compact-route .hero{display:none}
+[data-mode="compact"].compact-estimate:not(.compact-route) .status-head{width:calc(100% - var(--eta-width,110px) - 8px)}
+[data-mode="compact"] .merchant{grid-area:2/1/3/5;display:grid;grid-template-columns:25px minmax(0,1fr) 92px;gap:5px;min-width:0;padding:0;align-items:center}
+[data-mode="compact"] .merchant>div:nth-child(2){display:contents}
+[data-mode="compact"] .merchant .avatar{width:25px;height:25px;grid-area:1/1/2/2}
+[data-mode="compact"] .merchant strong{grid-area:1/2/2/3;font-size:14px;line-height:18px;max-width:100%;width:100%;white-space:nowrap}
+[data-mode="compact"] #order-number{grid-area:1/3/2/4;font-size:11px;line-height:18px;margin:0;white-space:nowrap;overflow:hidden;text-align:right}
+[data-mode="compact"] .segments{grid-area:3/1/4/5;gap:4px}
+[data-mode="compact"] .steps,[data-mode="compact"] .order-details{display:none}
+[data-mode="compact"] .driver{grid-area:4/1/5/2;gap:2px;min-width:0;max-width:100%;align-self:center}
+[data-mode="compact"] .driver>div:nth-child(2){flex:1;min-width:0}
+[data-mode="compact"] .driver .avatar{width:14px;height:14px}
+[data-mode="compact"] .driver .avatar svg{width:14px;height:14px}
+[data-mode="compact"] .driver strong{font-size:14px;line-height:18px;font-weight:400;white-space:nowrap;width:100%;color:#717171}
+[data-mode="compact"] .driver .micro{display:none}
+[data-mode="compact"] .vehicle{grid-area:4/2/5/3;display:flex;align-items:center;justify-content:center;gap:3px;width:100%;min-width:0;margin:0;font-size:12px;line-height:18px;white-space:nowrap;align-self:center}
+[data-mode="compact"] .vehicle svg{width:14px;height:14px}
+[data-mode="compact"] .code{grid-area:4/4/5/5;padding:0;border:0;min-width:0;width:74px;justify-self:end;align-self:center;justify-content:flex-end;flex-wrap:nowrap}
+[data-mode="compact"] .code>div:first-child{display:none}
+[data-mode="compact"] .digits{display:flex;gap:2px;min-width:0}
+[data-mode="compact"] .digit{width:17px;height:22px;font-size:16px;border-radius:3px}
+[data-mode="compact"].long-code .digit{width:10.5px;font-size:14px}
+[data-mode="compact"] .footer{grid-area:4/1/5/5;display:grid;grid-template-columns:minmax(0,1fr) auto 24px 24px;gap:5px;min-height:28px;margin:0;align-items:center}
+[data-mode="compact"] .footer-meta{gap:2px;min-width:0}
+[data-mode="compact"] .updated{font-size:9px;white-space:nowrap;overflow:hidden}
+[data-mode="compact"] .language{width:30px;font-size:9px;min-height:24px}
+[data-mode="compact"] .actions{gap:6px}
+[data-mode="compact"] .action{font-size:10px;padding:2px 0;gap:2px;min-height:24px;white-space:nowrap}
+[data-mode="compact"] .action svg{width:11px;height:11px}
+[data-mode="compact"] .ifood-mark{width:23px;height:23px;margin:0}
+[data-mode="compact"] .mode-toggle{position:static;width:24px;height:24px;padding:3px}
+[data-mode="compact"] .notice{grid-area:4/1/5/5;font-size:9px;line-height:11px;padding:0 3px;align-self:center}
+[data-mode="compact"].compact-has-driver .shell{grid-template-rows:26px 26px 4px 26px 28px;gap:4px 5px}
+[data-mode="compact"].compact-has-driver .footer{grid-row:5}
+[data-mode="compact"].has-issue .shell{grid-template-rows:34px 30px 4px 22px 28px;gap:2px 5px}
+[data-mode="compact"].has-issue .footer{grid-row:5}
+[data-mode="compact"].compact-has-driver.has-issue .shell{grid-template-rows:26px 26px 4px 26px 22px 28px;gap:.8px 5px;padding:2px 8px}
+[data-mode="compact"].compact-has-driver.has-issue .notice{grid-row:5}
+[data-mode="compact"].compact-has-driver.has-issue .footer{grid-row:6}
+/* Shared, readable progress steps in both modes. */
+.steps{font-size:12px;line-height:18px;margin-top:4px;color:#717171}
+.step{display:flex;align-items:center;justify-content:center;gap:2px;min-width:0;white-space:nowrap}
+.step>span{flex:none}
+.step-icon{display:inline-flex}
+.step-icon svg{width:12px;height:12px}
 
-/* A denied resize still exposes the compact summary and controls. */
-  [data-mode="full"].constrained .shell{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:min-content;align-content:start;padding:6px;gap:3px 8px}
-  [data-mode="full"].constrained .merchant{grid-area:1/1/2/3}
-  [data-mode="full"].constrained .hero{grid-area:2/1/3/3;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 7px;padding-left:20px}
-  [data-mode="full"].constrained .eta{font-size:23px;line-height:25px;margin:0}
-  [data-mode="full"].constrained .eta-detail{font-size:9px;line-height:12px}
-  [data-mode="full"].constrained .eta-source{display:none}
-  [data-mode="full"].constrained .journey{grid-area:3/1/4/3;padding:5px 6px}
-  [data-mode="full"].constrained .status-head{margin-bottom:4px}
-  [data-mode="full"].constrained .driver{grid-area:4/1;min-height:28px;min-width:0}
-  [data-mode="full"].constrained .driver .vehicle{display:none}
-  [data-mode="full"].constrained .code{grid-area:4/2;border:0;padding:0;flex-direction:column;gap:2px;align-items:flex-end}
-  [data-mode="full"].constrained .code small{display:none}
-  [data-mode="full"].constrained .digit{height:20px;width:18px;font-size:14px}
-  [data-mode="full"].constrained .order-details{grid-area:5/1/6/3;padding-top:4px;gap:3px 10px}
-  [data-mode="full"].constrained .order-details>div:nth-child(n+3){display:none}
-  [data-mode="full"].constrained .notice{grid-area:6/1/7/3}
-  [data-mode="full"].constrained .footer{grid-area:7/1/8/3}
-@media(max-height:210px){
-  [data-mode="full"] .order-details{display:none}
-}
+/* Expanded steps share the exact columns of their progress segments.
+   Stacked icons leave each full-size label its own clear reading space. */
+[data-mode="full"] .journey{padding:8px 6px}
+[data-mode="full"] .segments,[data-mode="full"] .steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:8px}
+[data-mode="full"] .steps{margin-top:6px}
+[data-mode="full"] .step{flex-direction:column;gap:2px;min-width:0}
+[data-mode="full"] .step-icon{width:18px;height:18px;align-items:center;justify-content:center}
+[data-mode="full"] .step-icon svg{width:16px;height:16px}
+[data-mode="full"] .step>span:last-child{line-height:18px;white-space:nowrap}
+[data-mode="compact"] .step>span:last-child{display:none}
+
+
+[data-mode="compact"] .compact-distance{grid-area:4/3/5/4;display:flex;align-items:center;justify-content:center;gap:2px;width:100%;min-width:0;font-size:11px;line-height:18px;color:#717171;white-space:nowrap;align-self:center}
+[data-mode="compact"] .compact-distance svg{width:12px;height:12px}
