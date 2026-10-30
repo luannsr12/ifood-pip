@@ -2,10 +2,11 @@
 
 | Versão | Pacote | Situação |
 | --- | --- | --- |
+| 0.0.9 | [ifood-pip-0.0.9-chrome-web-store.zip](ifood-pip-0.0.9-chrome-web-store.zip) | [v0.0.9 no GitHub](https://github.com/luannsr12/ifood-pip/releases/tag/0.0.9) |
 | 0.0.8 | [ifood-pip-0.0.8-chrome-web-store.zip](ifood-pip-0.0.8-chrome-web-store.zip) | [Publicada no GitHub](https://github.com/luannsr12/ifood-pip/releases/tag/0.0.8) |
 | 0.0.7 | [ifood-pip-0.0.7-chrome-web-store.zip](ifood-pip-0.0.7-chrome-web-store.zip) | [Publicada no GitHub](https://github.com/luannsr12/ifood-pip/releases/tag/0.0.7) |
 
-As notas da 0.0.8 estão em [NOTES-0.0.8.md](NOTES-0.0.8.md). As notas da 0.0.7 permanecem como registro histórico do que foi publicado. Os pacotes publicados não são sobrescritos. As revisões de interface posteriores à publicação não integram esses arquivos.
+As alterações atuais estão em [NOTES-0.0.9.md](NOTES-0.0.9.md). As notas e os pacotes da 0.0.8 e 0.0.7 permanecem como registro histórico das respectivas distribuições e não são sobrescritos.
 
 ## Conteúdo
 
@@ -29,7 +30,7 @@ Não entram `src/`, `scripts/`, `tests/`, `test-results/`, `store-assets/`, depe
 
 Antes de empacotar, execute `npm run build`, `npm test` e `npm run check`. Manifest e package.json devem indicar a mesma versão. Gere o ZIP usando somente a lista acima, nunca compactando o repositório inteiro.
 
-Confira a versão do manifest extraído, as referências aos ícones e ao script, a lista de entradas e os hashes de cada arquivo em relação à árvore de trabalho. A versão 0.0.8 deve conter `POLL_INTERVAL = 60000` no script compilado. O hash do ZIP pode ser obtido com `Get-FileHash -Algorithm SHA256` no PowerShell.
+Confira a versão do manifest extraído, as referências aos ícones e ao script, a lista de entradas e os hashes de cada arquivo em relação à árvore de trabalho. A versão 0.0.9 deve conter `POLL_INTERVAL = 60000` no script compilado. O hash do ZIP pode ser obtido com `Get-FileHash -Algorithm SHA256` no PowerShell. As notas de cada versão registram o tamanho e o SHA-256 do respectivo pacote.
 
 ## Download e instalação
 
