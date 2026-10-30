@@ -1,8 +1,10 @@
+const deliveryWindow=require('./delivery-window.cjs')();
 // Real Edge/PiP, synthetic transport and a controlled clock for retry limits.
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+const results=path.resolve(process.env.IFOOD_RECOVERY_RESULTS || 'test-results');
 (async()=>{
   const profile=fs.mkdtempSync(path.join(os.tmpdir(),'ifood-recovery-'));
   const context=await chromium.launchPersistentContext(profile,{channel:'msedge',headless:false,viewport:null,args:['--disable-extensions-except='+process.cwd(),'--load-extension='+process.cwd()]});
@@ -10,7 +12,8 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
   const page=await context.newPage(),errors=[];
   context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
   let payload=[{orderId:id,value:'PREPARATION_STARTED',timestamp:new Date().toISOString()}];
-  await page.route('https://www.ifood.com.br/**',route=>route.request().url().includes('/site-api/')?route.fulfill({json:payload}):route.fulfill({contentType:'text/html; charset=utf-8',body:'<!doctype html><meta charset="utf-8"><h2 data-testid="merchant-name">Cozinha da Praça</h2><p>Pedido #4421</p><p>Previsão de entrega Hoje, 13:30 – 14:00</p><p>Código de entrega 1234</p>'}));
+  let details={};
+  await page.route('https://www.ifood.com.br/**',route=>route.request().url().includes('/site-api/')?route.fulfill({json:route.request().url().endsWith('/events')?payload:details}):route.fulfill({contentType:'text/html; charset=utf-8',body:`<!doctype html><meta charset="utf-8"><h2 data-testid="merchant-name">Cozinha da Praça</h2><p>Pedido #4421</p><p>Previsão de entrega ${deliveryWindow.label}</p><p>Código de entrega 1234</p>`}));
   try {
     await page.goto(`https://www.ifood.com.br/pedido/${id}/acompanhar`);
     await page.evaluate(()=>{localStorage.setItem('ifood-pip-mode','full');const now=Date.now;window.__clock=0;Date.now=()=>now()+window.__clock});
@@ -19,6 +22,14 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
     const popup=context.waitForEvent('page');await page.locator('#ifood-pip-companion-root button').click();
     const pip=await popup;await pip.locator('#status').filter({hasText:'Preparando o pedido'}).waitFor();
     assert.equal(await pip.locator('body').getAttribute('data-mode'),'compact');
+    // Details can arrive separately while the event history stays identical.
+    payload=[{orderId:id,value:'ASSIGN_DRIVER',timestamp:new Date().toISOString()}];await feed();
+    details={delivery:{driver:{name:'Mariana Aparecida',modal:'MOTORCYCLE'}}};
+    const feedDetails=()=>page.evaluate(id=>fetch(`/site-api/v1/customers/me/orders/${id}`).then(r=>r.json()),id);
+    await feedDetails();await pip.locator('#driver-name').filter({hasText:'Mariana A.'}).waitFor();
+    details={delivery:{driver:{name:'Matheus Almeida',modal:'BICYCLE'}}};
+    await feedDetails();await pip.locator('#driver-name').filter({hasText:'Matheus A.'}).waitFor();
+    assert.equal(await pip.locator('#vehicle').textContent(),'Bicicleta');
     const bounds=async()=>{
       const b=await pip.evaluate(()=>({height:innerHeight,scroll:document.documentElement.scrollHeight,footer:document.querySelector('.footer').getBoundingClientRect().bottom,note:document.querySelector('#note').getBoundingClientRect().bottom}));
       assert.ok(b.scroll<=b.height&&b.footer<=b.height&&b.note<=b.height,JSON.stringify(b));
@@ -45,22 +56,22 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
     assert.equal(await pip.locator('#refresh').isDisabled(),true);
     await pip.evaluate(()=>document.getElementById('refresh').click());
     assert.equal(await pip.evaluate(()=>window.__calls),4);
-    await bounds();fs.mkdirSync('test-results',{recursive:true});
-    await pip.screenshot({path:'test-results/recovery-compact-paused.png'});
+    await bounds();fs.mkdirSync(results,{recursive:true});
+    await pip.screenshot({path:path.join(results,'recovery-compact-paused.png')});
     await pip.locator('#toggle-mode').click();await pip.waitForFunction(()=>innerHeight>210);
     await bounds();assert.equal(await pip.locator('#note').isVisible(),true);
-    await pip.screenshot({path:'test-results/recovery-full-paused.png'});
+    await pip.screenshot({path:path.join(results,'recovery-full-paused.png')});
     // Successful traffic from the site clears the budget and restarts one timer.
     await feed();await pip.waitForFunction(()=>!document.getElementById('refresh').disabled);
     assert.equal(await pip.evaluate(()=>window.__timers.size),1);
     payload=[{orderId:id,value:'ASSIGN_DRIVER',timestamp:new Date().toISOString(),metadata:{driverName:'Ana Souza',modal:'MOTORCYCLE'}},{orderId:id,value:'DISPATCHED',timestamp:new Date().toISOString(),metadata:{routeDistanceMeters:2200}}];
     await feed();await pip.locator('#toggle-mode').click();
-    await pip.waitForFunction(()=>Math.abs(innerHeight-164)<=3);
+    await pip.waitForFunction(()=>Math.abs(innerHeight-142)<=3);
     for(let n=0;n<4;n++) {await pip.locator('#refresh').click();await pip.waitForFunction(()=>!document.querySelector('#refresh.refreshing'))}
     await pip.locator('#note').filter({hasText:'Consultas pausadas'}).waitFor();
     assert.equal(await pip.locator('#code-card').isVisible(),true);
     assert.equal(await pip.locator('#driver-card').isVisible(),true);
-    await bounds();await pip.screenshot({path:'test-results/recovery-compact-code-paused.png'});
+    await bounds();await pip.screenshot({path:path.join(results,'recovery-compact-code-paused.png')});
     assert.equal(await pip.evaluate(()=>window.__timers.size),0);
     payload=[{orderId:id,value:'COMPLETED',timestamp:new Date().toISOString()}];await feed();
     await pip.locator('#toggle-mode').click();await pip.waitForFunction(()=>innerHeight>210);
@@ -70,7 +81,7 @@ const id='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
     await pip.evaluate(()=>document.getElementById('refresh').click());
     assert.equal(await pip.evaluate(()=>window.__calls),8);
     assert.equal(await pip.locator('#code-card').isVisible(),false);
-    await bounds();await pip.screenshot({path:'test-results/recovery-completed.png'});
+    await bounds();await pip.screenshot({path:path.join(results,'recovery-completed.png')});
     assert.deepEqual(errors,[]);
     console.log(JSON.stringify({result:'PASS',consecutiveFailures:4,automaticCallbacks:3,pageRecovery:true,terminalStopped:true,compactDefault:true,errors}));
   } finally {await context.close();fs.rmSync(profile,{recursive:true,force:true,maxRetries:3,retryDelay:200})}
