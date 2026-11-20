@@ -1,114 +1,134 @@
 <div align="center">
-  <img src="store-assets/store-logo-300.png" alt="Ícone do iFood PiP" width="104" />
+  <img src="store-assets/store-logo-300.png" alt="Ícone do iFood PiP" width="104">
 
   # iFood PiP
 
-  **Seu pedido em uma janela flutuante. Seu computador continua livre.**
+  **Acompanhe seu pedido em uma janela flutuante. Continue usando o computador normalmente.**
 
-  Acompanhe o iFood enquanto trabalha, estuda, navega ou usa outros aplicativos — sem precisar manter a aba do pedido em primeiro plano.
+  Uma extensão para acompanhar entregas do iFood enquanto você trabalha, estuda ou navega — sem manter a página do pedido em primeiro plano.
 
-  **Versão 0.0.9** · **Manifest V3** · **Apache 2.0**
+  **v0.0.9** · Manifest V3 · Chrome & Edge · Português, English, Español · Apache 2.0
 
-  <a href="https://chromewebstore.google.com/detail/ifood-pip-%E2%80%94-pedido-em-min/gkmphecdhlchhmdjfmpjlomoiflhhjbj">
-    <img src="https://developer.chrome.com/static/docs/webstore/branding/image/206x58-chrome-web-bcb82d15b2486.png?hl=pt-br"
-         alt="Disponível na Chrome Web Store"
-         width="150">
-  </a>
-  
-   <br>
-   
+  <h3>Instale pela loja do seu navegador</h3>
+</div>
+
+| Google Chrome | Microsoft Edge |
+|:---:|:---:|
+| <a href="https://chromewebstore.google.com/detail/ifood-pip-%E2%80%94-pedido-em-min/gkmphecdhlchhmdjfmpjlomoiflhhjbj"><img src="store-assets/chrome-web-store.svg" alt="Logo da Chrome Web Store" width="54" height="54"></a> | <a href="https://microsoftedge.microsoft.com/addons/detail/hndpmofimdbajogjfnpjeamiolhipiia"><img src="store-assets/microsoft-edge.svg" alt="Logo do Microsoft Edge" width="54" height="54"></a> |
+| **[Instalar pela Chrome Web Store](https://chromewebstore.google.com/detail/ifood-pip-%E2%80%94-pedido-em-min/gkmphecdhlchhmdjfmpjlomoiflhhjbj)** | **[Instalar pelo Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/hndpmofimdbajogjfnpjeamiolhipiia)** |
+
+<div align="center">
+  <sub>Imagens das lojas hospedadas neste repositório — nenhum logo depende de um servidor externo.</sub>
 </div>
 
 ---
 
-![Apresentação do iFood PiP](store-assets/promo-pt-large.png)
+![iFood PiP — acompanhamento do pedido em uma mini janela](store-assets/promo-pt-large.png)
 
-## O problema que resolve
+## Seu pedido à vista, sem interromper o que você está fazendo
 
-Acompanhar uma entrega pelo navegador não deveria exigir que você fique preso à página do pedido. Com o **iFood PiP**, o acompanhamento fica em uma pequena janela independente, que pode permanecer visível sobre outros aplicativos e atualizar as informações sem que você precise voltar à aba do iFood a todo momento.
+O **iFood PiP** transforma o acompanhamento do pedido em uma janela independente, usando a API **Document Picture-in-Picture**. Você pode continuar em outras abas e até em outros aplicativos enquanto acompanha as etapas da entrega.
 
-## Funcionalidades
+A aba original do pedido permanece aberta em segundo plano; você não precisa deixá-la visível.
 
-- **Janela flutuante de verdade:** utiliza a API *Document Picture-in-Picture* para mostrar o acompanhamento fora da aba original, inclusive sobre outros programas.
-- **Atualizações automáticas:** consulta os eventos a cada **60 segundos**, enquanto a mini janela está aberta. Respostas recebidas do próprio site também atualizam a interface; o botão **Atualizar** permite uma consulta imediata.
-- **Informações em um só lugar:** mostra etapas do pedido e, quando disponíveis, dados da loja, do entregador, do veículo e da entrega.
-- **Previsão de chegada:** apresenta a faixa de entrega informada pelo iFood e, após a saída para entrega, pode calcular uma **estimativa local aproximada** usando os dados disponíveis.
-- **Previsão por etapa:** antes da saída, mantém a faixa completa da loja (por exemplo, `13:30 – 14:00`) nos dois modos. A contagem `~8 min` começa no horário da saída para entrega; atribuição do entregador e retirada na loja não iniciam o relógio.
-- **Privacidade por padrão:** não tem servidor do desenvolvedor, anúncios nem ferramentas de análise; os dados do pedido não são enviados a um serviço externo do projeto.
-- **Três idiomas:** português, inglês e espanhol, com seleção diretamente na mini janela.
-- **Dois modos:** a PiP sempre abre recolhida. O controle de expansão mostra as etapas com nomes e ícones, a faixa prometida, um resumo do percurso, dados do entregador e código de entrega, conforme disponíveis.
-- **Compacto reorganizado:** status em destaque, loja e número do pedido na mesma linha e barras de progresso sem legendas. Quando há entregador, nome/foto, veículo, distância e código ocupam células estáveis; os campos ausentes não deslocam os demais.
-- **Leitura mais clara:** fontes maiores nos dois modos e etapas do expandido com ícones acima dos nomes, centralizados sob suas barras. Os textos foram revisados em português, inglês e espanhol.
-- **Consultas com limite:** quatro falhas consecutivas pausam as consultas da extensão e exibem uma orientação discreta para abrir o pedido no iFood e atualizar a página. Uma resposta válida do site libera novamente as consultas. Pedidos concluídos ou cancelados encerram o polling.
-- **Informações no momento certo:** entregador, veículo, trajeto e código aparecem conforme os eventos permitem. O código fica disponível durante a entrega e desaparece após a validação ou conclusão. O modo completo começa menor e acomoda os detalhes que surgirem.
+## O que a extensão oferece
 
-## Prévia
+- **Janela sempre à mão:** visualização flutuante com modos **recolhido** e **expandido**. A janela sempre abre recolhida; você pode expandi-la para consultar mais detalhes.
+- **Acompanhamento atualizado:** eventos observados na própria página do iFood são refletidos na interface. Com a mini janela aberta, a extensão pode consultar o iFood automaticamente a cada **60 segundos** ou quando você clicar em **Atualizar**.
+- **Etapas do pedido:** progresso da preparação à entrega, com informações do estabelecimento, horários e situação atual.
+- **Detalhes quando disponíveis:** dados do entregador, veículo, distância, percurso e código de entrega aparecem conforme são fornecidos pelo iFood.
+- **Estimativa de chegada:** preserva a faixa de entrega informada pelo iFood e, após a **saída para entrega**, pode mostrar uma contagem aproximada calculada localmente. A previsão própria não é uma estimativa oficial de trânsito.
+- **Interface em três idiomas:** português, inglês e espanhol, com escolha dentro da mini janela.
+- **Recuperação de falhas:** após quatro consultas malsucedidas consecutivas, pausa as atualizações independentes e orienta a atualizar a página do pedido. Pedidos concluídos ou cancelados encerram essas consultas.
+- **Privacidade:** sem servidor do desenvolvedor, anúncios ou ferramentas de telemetria. Os dados de acompanhamento não são enviados para a infraestrutura do projeto.
 
-As imagens abaixo são materiais ilustrativos de apresentação. As capturas dos layouts atuais e suas limitações estão descritas em [tests/VALIDATION.md](tests/VALIDATION.md).
+## Veja como fica
 
-| Acompanhamento | Progresso da entrega |
+| Acompanhamento do pedido | Detalhes da entrega |
 |:---:|:---:|
-| <img src="store-assets/screenshot-pt-01.png" alt="iFood PiP mostrando o acompanhamento do pedido" width="390" /> | <img src="store-assets/screenshot-pt-02.png" alt="iFood PiP mostrando outra etapa do pedido" width="390" /> |
+| <img src="store-assets/screenshot-pt-01.png" alt="Prévia do acompanhamento do pedido no iFood PiP" width="390"> | <img src="store-assets/screenshot-pt-02.png" alt="Prévia dos detalhes e do progresso da entrega no iFood PiP" width="390"> |
 
-## Instalação
+<sub>Imagens ilustrativas de divulgação. Para informações sobre os layouts e os testes da versão atual, veja [VALIDATION.md](tests/VALIDATION.md).</sub>
 
-### Pacote pronto (Edge ou Chrome)
+## Como instalar e usar
 
-A `0.0.9` está disponível como [ZIP de distribuição](releases/ifood-pip-0.0.9-chrome-web-store.zip), com a interface revisada e polling de 60 segundos. Consulte as [notas da versão](releases/NOTES-0.0.9.md) e a [release v0.0.9](https://github.com/luannsr12/ifood-pip/releases/tag/0.0.9). Em **Assets**, escolha `ifood-pip-0.0.9-chrome-web-store.zip`; os links automáticos **Source code** incluem o repositório completo. Consulte [releases/README.md](releases/README.md) para o conteúdo e a validação dos pacotes.
+### Instalação recomendada: lojas oficiais
 
-1. Baixe o ZIP de distribuição e extraia os arquivos.
-2. Acesse `edge://extensions` no Microsoft Edge ou `chrome://extensions` no Google Chrome.
+Use o link da loja correspondente ao seu navegador, no início deste README. Depois de instalar:
+
+1. Entre em [ifood.com.br](https://www.ifood.com.br/) e abra a página de acompanhamento de um pedido.
+2. Clique em **Mini janela do pedido** quando o botão aparecer.
+3. Continue usando outras abas ou aplicativos. Expanda a janela se quiser ver mais detalhes.
+4. Mantenha a **aba original do pedido aberta**, mesmo em segundo plano.
+
+O botão é exibido apenas nas páginas de acompanhamento de pedidos. A extensão reconhece a navegação interna do iFood sem exigir que você atualize a página a cada mudança.
+
+### Instalação manual pelo ZIP
+
+Se preferir instalar a versão de distribuição manualmente:
+
+1. Baixe o [pacote v0.0.9](releases/ifood-pip-0.0.9-chrome-web-store.zip) e extraia o conteúdo.
+2. Abra `chrome://extensions` no Chrome ou `edge://extensions` no Edge.
 3. Ative o **Modo do desenvolvedor**.
-4. Clique em **Carregar sem compactação** e selecione a pasta que contém o `manifest.json`.
-5. Entre no iFood e abra o acompanhamento do pedido. A navegação interna não exige atualizar a página.
-6. Aguarde o carregamento das informações e clique em **Mini janela do pedido**.
+4. Escolha **Carregar sem compactação** e selecione a pasta extraída que contém o `manifest.json`.
+5. Abra o acompanhamento de um pedido no iFood.
 
-**Requisitos:** navegador compatível com *Document Picture-in-Picture* (Chrome 116+ ou versão compatível do Edge), acesso a uma conta do iFood e um pedido com página de acompanhamento disponível.
+Se a aba do iFood já estava aberta quando você instalou ou atualizou manualmente a extensão, recarregue-a uma vez para carregar o script novo.
 
-Para usar o código-fonte, clone ou extraia o repositório e selecione a pasta raiz no passo 4. Ao instalar ou atualizar uma extensão descompactada com o iFood já aberto, recarregue essa aba uma vez para carregar o script novo. Isso não é necessário ao navegar até os pedidos nas visitas seguintes.
+**Requisitos:** Google Chrome 116+ ou versão compatível do Microsoft Edge com suporte a *Document Picture-in-Picture*, uma conta do iFood e um pedido com acompanhamento disponível.
+
+A versão `0.0.9` também está documentada nas [notas de lançamento](releases/NOTES-0.0.9.md) e na [release do GitHub](https://github.com/luannsr12/ifood-pip/releases/tag/0.0.9).
 
 ## Como funciona
 
-A extensão é inicializada em `https://www.ifood.com.br/*` para acompanhar a navegação interna do site. O botão e a mini janela ficam disponíveis **somente nas páginas de acompanhamento de pedido**. Assim, entrar pelo início do iFood e abrir um pedido não exige atualizar a página.
+A extensão usa um *content script* do Manifest V3 no domínio `www.ifood.com.br` para identificar a página de acompanhamento e observar as respostas de pedidos que o próprio site recebe.
 
-Ela observa as requisições feitas pela própria página para obter os eventos do pedido. Com a mini janela aberta, pode repetir essas consultas diretamente ao iFood a cada 60 segundos, utilizando a sessão já autenticada no navegador. Atualizações recentes do site adiam consultas redundantes; isso não altera a frequência de requisições do próprio iFood. O relógio visual da estimativa pode mudar sem disparar uma requisição de rede.
+Quando a mini janela está aberta, ela pode repetir consultas aos **serviços do próprio iFood**, aproveitando a sessão já autenticada. Novas respostas do site também atualizam a janela, e consultas recentes evitam requisições redundantes.
 
-A janela usa a API *Document Picture-in-Picture* do navegador. Isso permite acompanhar o pedido enquanto você utiliza outras abas **ou outros aplicativos**, sem deixar a página de rastreamento visível na tela.
+A mini janela é vinculada à aba original: **fechar ou recarregar essa aba encerra a PiP**. Ao fechar a mini janela, as consultas periódicas independentes da extensão param.
 
-> **Importante:** a aba original do pedido precisa continuar **aberta**, mas pode ficar em segundo plano. Fechar ou recarregar essa aba também encerra a mini janela. A previsão calculada pela extensão é uma aproximação, não uma estimativa oficial de trânsito em tempo real.
+A extensão não pede permissões adicionais no `manifest.json`. Para saber quais informações são processadas e como são mantidas temporariamente, leia a [Política de Privacidade](PRIVACY.md).
 
-## Privacidade
+## Desenvolvimento
 
-O iFood PiP foi pensado para funcionar sem coleta de dados pelo desenvolvedor:
+O código-fonte está disponível integralmente neste repositório. O `content.js` compilado já está incluído: não é necessário instalar dependências para **usar** a extensão.
 
-- Não solicita login, senha ou token fora da autenticação normal do iFood.
-- Mantém as informações do pedido e os dados de autenticação observados **em memória** durante o uso.
-- Comunica-se com os serviços do próprio iFood e com os endereços de imagens necessários para exibir o acompanhamento; **não envia dados do pedido para servidores do desenvolvedor**.
-- Armazena localmente o idioma escolhido (`ifood-pip-language`). A visualização começa recolhida em cada abertura.
-- Não inclui rastreadores, anúncios ou telemetria do projeto.
+Para **desenvolver**, utilize Node.js 20+ e os comandos:
 
-Leia também a [Política de Privacidade](PRIVACY.md).
+```bash
+npm run build
+npm test
+npm run check
+```
 
-## Contribuições
+Não há dependências de npm a instalar. Altere os arquivos de `src/`, os estilos ou os catálogos de `_locales/` e gere novamente o `content.js`.
 
-Sugestões, correções e melhorias são bem-vindas. Você pode abrir uma *issue* para relatar um problema ou enviar um *pull request* com uma proposta de alteração.
+Para experimentar sem pedidos reais, o projeto inclui um simulador com dados fictícios:
 
-Para usar o código deste repositório, carregue a pasta como extensão descompactada. O `content.js` gerado está incluído; não é necessário instalar dependências para usar a extensão.
+```bash
+npm run simulate:realtime
+```
 
-Para desenvolver, use Node.js 20+ e execute `npm run build`, `npm test` e `npm run check`. Não há pacotes a instalar. Edite `src/`, os estilos e `_locales/`, gere novamente o pacote, recarregue a extensão e a aba do pedido. Consulte [ARCHITECTURE.md](ARCHITECTURE.md) para organização, traduções e testes de navegador.
+Esse comando requer Playwright para abrir o cenário no Edge e reproduzir eventos ao longo do tempo; o simulador **não faz parte do pacote publicado**.
 
-Para o teste interativo, `npm run simulate:realtime` abre um pedido fictício no Edge e reproduz cerca de 23 minutos de eventos em tempo real. Essa ferramenta requer Playwright; ela não faz pedidos reais nem integra o ZIP de produção. Os comandos completos estão no [README dos testes](tests/README.md).
+**Documentação:** [Arquitetura](ARCHITECTURE.md) · [Testes e simulação](tests/README.md) · [Validação da versão](tests/VALIDATION.md) · [Pacotes de distribuição](releases/README.md).
 
-## Licença
+## Privacidade e transparência
 
-Este projeto é disponibilizado como software de código aberto sob a **[Apache License 2.0](LICENSE)**. Consulte o arquivo `LICENSE` para os termos completos.
+O iFood PiP **não coleta dados para o desenvolvedor**. Informações do pedido e dados usados nas consultas ficam temporariamente em memória. Apenas o idioma escolhido é salvo localmente, na chave `ifood-pip-language`.
 
-## Aviso
+O funcionamento envolve requisições ao **próprio iFood** e o carregamento das imagens disponibilizadas por ele, inclusive por seus serviços de distribuição de imagens. Não há anúncios, ferramentas de análise ou serviços de acompanhamento mantidos pelo projeto. Mais detalhes em [PRIVACY.md](PRIVACY.md).
 
-**iFood PiP é um projeto independente.** Não é desenvolvido, mantido, patrocinado ou endossado pelo iFood. A marca iFood pertence aos seus respectivos titulares. A licença deste repositório não concede direitos sobre marcas de terceiros.
+Sugestões e relatos de problemas são bem-vindos nas [Issues](https://github.com/luannsr12/ifood-pip/issues). Contribuições também podem ser enviadas por *pull requests*.
+
+## Licença e independência
+
+Distribuído sob a **[Apache License 2.0](LICENSE)**.
+
+**iFood PiP é um projeto independente:** não é desenvolvido, mantido, patrocinado ou endossado pelo iFood. iFood, Chrome Web Store e Microsoft Edge são marcas de seus respectivos titulares. Os ícones das lojas são usados para identificar os destinos de instalação, não para indicar parceria ou endosso.
 
 ---
 
 <div align="center">
-  <sub>Feito para você acompanhar a entrega sem interromper o que está fazendo.</sub>
+  <sub>Seu pedido à vista. Seu computador continua livre.</sub>
 </div>
