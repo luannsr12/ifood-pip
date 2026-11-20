@@ -12,12 +12,29 @@
   <h3>Instale pela loja do seu navegador</h3>
 </div>
 
-| Google Chrome | Microsoft Edge |
-|:---:|:---:|
-| <a href="https://chromewebstore.google.com/detail/ifood-pip-%E2%80%94-pedido-em-min/gkmphecdhlchhmdjfmpjlomoiflhhjbj"><img src="store-assets/chrome-web-store.svg" alt="Logo da Chrome Web Store" width="54" height="54"></a> | <a href="https://microsoftedge.microsoft.com/addons/detail/hndpmofimdbajogjfnpjeamiolhipiia"><img src="store-assets/microsoft-edge.svg" alt="Logo do Microsoft Edge" width="54" height="54"></a> |
-| **[Instalar pela Chrome Web Store](https://chromewebstore.google.com/detail/ifood-pip-%E2%80%94-pedido-em-min/gkmphecdhlchhmdjfmpjlomoiflhhjbj)** | **[Instalar pelo Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/hndpmofimdbajogjfnpjeamiolhipiia)** |
-
 <div align="center">
+  <table align="center">
+    <thead>
+      <tr>
+        <th align="center">Google Chrome</th>
+        <th align="center">Microsoft Edge</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td align="center">
+          <a href="https://chromewebstore.google.com/detail/ifood-pip-%E2%80%94-pedido-em-min/gkmphecdhlchhmdjfmpjlomoiflhhjbj"><img src="store-assets/chrome-web-store.svg" alt="Logo da Chrome Web Store" width="54" height="54"></a>
+        </td>
+        <td align="center">
+          <a href="https://microsoftedge.microsoft.com/addons/detail/hndpmofimdbajogjfnpjeamiolhipiia"><img src="store-assets/microsoft-edge.svg" alt="Logo do Microsoft Edge" width="54" height="54"></a>
+        </td>
+      </tr>
+      <tr>
+        <td align="center"><a href="https://chromewebstore.google.com/detail/ifood-pip-%E2%80%94-pedido-em-min/gkmphecdhlchhmdjfmpjlomoiflhhjbj"><strong>Instalar pela Chrome Web Store</strong></a></td>
+        <td align="center"><a href="https://microsoftedge.microsoft.com/addons/detail/hndpmofimdbajogjfnpjeamiolhipiia"><strong>Instalar pelo Microsoft Edge Add-ons</strong></a></td>
+      </tr>
+    </tbody>
+  </table>
   <sub>Imagens das lojas hospedadas neste repositório — nenhum logo depende de um servidor externo.</sub>
 </div>
 
